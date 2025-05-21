@@ -56,7 +56,6 @@ const user = require("./routes/user");
 const recipes = require("./routes/recipes");
 const auth = require("./routes/auth");
 
-
 //#region cookie middleware
 app.use(function (req, res, next) {
   if (req.session && req.session.user_id) {
@@ -85,14 +84,11 @@ app.use("/", auth);
 
 
 
-
-
 // Default router
 app.use(function (err, req, res, next) {
   console.error(err);
   res.status(err.status || 500).send({ message: err.message, success: false });
 });
-
 
 
 const server = app.listen(port, () => {
