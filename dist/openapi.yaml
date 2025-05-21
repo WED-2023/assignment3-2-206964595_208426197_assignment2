@@ -857,5 +857,4 @@ components:
         servings:
           type: integer
           description: Number of servings.
-          example: 4
-          
+          example: 2

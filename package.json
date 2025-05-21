@@ -4,8 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "start": "node main.js",
-    "setup": "echo 'Installing...'"
+    "start": "node main.js"
   },
   "keywords": [],
   "author": "",
