@@ -1,4 +1,5 @@
 const axios = require("axios");
+const db = require("./MySql");
 const api_domain = "https://api.spoonacular.com/recipes";
 
 
@@ -33,6 +34,24 @@ async function getRecipeDetails(recipe_id) {
         glutenFree: glutenFree,
         
     }
+}
+
+async function getRandomRecipesFromDB() {
+  try {
+    const sql = `
+      SELECT 
+        id, title, image, readyInMinutes, 
+        aggregateLikes AS popularity, vegan, vegetarian, glutenFree
+      FROM recipes
+      ORDER BY RAND()
+      LIMIT 3
+    `;
+    const results = await db.query(sql);
+    return results;
+  } catch (error) {
+    console.error("Error fetching random recipes from DB:", error.message);
+    throw error;
+  }
 }
 
 

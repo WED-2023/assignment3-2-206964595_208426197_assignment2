@@ -18,5 +18,14 @@ router.get("/:recipeId", async (req, res, next) => {
 });
 
 
+router.get("/Explore", async (req, res, next) => {
+  try {
+    const recipes = await recipes_utils.getRandomRecipesFromDB();
+    res.send(recipes);
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 module.exports = router;
