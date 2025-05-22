@@ -124,7 +124,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/previewFamilyRecipe"
         "204":
-          description: we need atleast 3 recpies, we must have yuval mom's cheesecake in it 
+          description: we need atleast 3 recpies 
         "401":
           description: User not logged in
 

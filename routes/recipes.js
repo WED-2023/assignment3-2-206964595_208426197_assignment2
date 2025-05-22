@@ -6,6 +6,52 @@ router.get("/", (req, res) => res.send("im here"));
 
 
 /**
+ * This path returns three random recipes from the DB
+ */
+router.get("/Explore", async (req, res, next) => {
+  try {
+    const recipes = await recipes_utils.getRandomRecipesFromDB();
+    res.send(recipes);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+router.get("/Family", async (req, res, next) => {
+  try {
+    if (!req.session || !req.session.user_id) {
+      return res.status(401).send("User not logged in");
+    }
+
+    const recipes = await recipes_utils.getFamilyRecipesByUser(req.session.user_id);
+
+    if (recipes.length < 3) {
+      return res.status(204).send("we need at least 3 recipes, we must have yuval mom's cheesecake in it");
+    }
+
+    res.status(200).send(recipes);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+router.get("/search", async (req, res, next) => {
+  try {
+    const results = await recipes_utils.searchRecipes(req.query);
+    if (results.length === 0) return res.status(204).send("No results");
+    res.status(200).send(results);
+  } catch (error) {
+    if (error.status === 400) return res.status(400).send(error.message);
+    next(error);
+  }
+});
+
+
+
+
+/**
  * This path returns a full details of a recipe by its id
  */
 router.get("/:recipeId", async (req, res, next) => {
@@ -18,14 +64,8 @@ router.get("/:recipeId", async (req, res, next) => {
 });
 
 
-router.get("/Explore", async (req, res, next) => {
-  try {
-    const recipes = await recipes_utils.getRandomRecipesFromDB();
-    res.send(recipes);
-  } catch (error) {
-    next(error);
-  }
-});
+
+
 
 
 module.exports = router;
