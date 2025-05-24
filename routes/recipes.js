@@ -39,14 +39,29 @@ router.get("/Family", async (req, res, next) => {
 
 router.get("/search", async (req, res, next) => {
   try {
-    const results = await recipes_utils.searchRecipes(req.query);
-    if (results.length === 0) return res.status(204).send("No results");
+    const { query, number, cuisine, diet, intolerance } = req.query;
+    const results = await recipes_utils.searchRecipes({
+      query,
+      number,
+      cuisine,
+      diet,
+      intolerance
+    });
+
+    if (results.length === 0) {
+      return res.status(204).send("There are no matching recipes");
+    }
+
     res.status(200).send(results);
   } catch (error) {
-    if (error.status === 400) return res.status(400).send(error.message);
-    next(error);
+    if (error.status) {
+      res.status(error.status).send({ message: error.message, success: false });
+    } else {
+      next(error);
+    }
   }
 });
+
 
 
 

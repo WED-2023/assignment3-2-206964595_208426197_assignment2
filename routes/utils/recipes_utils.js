@@ -122,12 +122,9 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     }
 
     if (intolerance) {
-      const intolerances = intolerance.split(",").map((s) => s.trim());
-      for (const intol of intolerances) {
-        if (intol === "gluten") sql += ` AND glutenFree = true`;
-        if (intol === "dairy") sql += ` AND vegan = true`; // assumption
-
-      }
+    const intoleranceArray = intolerance.split(",").map(s => s.trim());
+    sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
+    bindings.push(JSON.stringify(intoleranceArray));
     }
 
     sql += ` LIMIT ?`;
@@ -154,6 +151,39 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
 }
 
 
+function detectIntolerances(ingredients) {
+  const intoleranceMap = {
+    dairy: ["milk", "cheese", "cream", "butter", "yogurt"],
+    egg: ["egg"],
+    gluten: ["flour", "wheat", "pasta", "bread"],
+    peanut: ["peanut", "peanut butter"],
+    shellfish: ["shrimp", "crab", "lobster"],
+    soy: ["soy", "tofu"],
+    treeNut: ["almond", "cashew", "walnut"],
+    wheat: ["wheat", "flour"],
+    sesame: ["sesame"],
+    sulfite: ["sulfite"],
+    grain: ["flour", "bread", "rice"],
+    seafood: ["tuna", "salmon", "shrimp"]
+  };
+
+  const detected = new Set();
+  const lowerIngredients = ingredients.map(i => i.toLowerCase());
+
+  for (const [intolerance, keywords] of Object.entries(intoleranceMap)) {
+    for (const keyword of keywords) {
+      if (lowerIngredients.includes(keyword)) {
+        detected.add(intolerance);
+        break;
+      }
+    }
+  }
+
+  return Array.from(detected);
+}
+
+
+
 
 
 
@@ -161,6 +191,8 @@ exports.getRecipeDetails = getRecipeDetails;
 exports.getRandomRecipesFromDB = getRandomRecipesFromDB;
 exports.getFamilyRecipesByUser = getFamilyRecipesByUser;
 exports.searchRecipes = searchRecipes;
+exports.detectIntolerances = detectIntolerances;
+
 
 
 
