@@ -20,54 +20,108 @@ async function getRecipeInformation(recipe_id) {
 }
 
 async function getRecipeDetails(recipe_id) {
-    let recipe_info = await getRecipeInformation(recipe_id);
-    let { id, title, readyInMinutes, image, aggregateLikes, vegan, vegetarian, glutenFree } = recipe_info.data;
+  if (!isNaN(recipe_id)) {
+    // Spoonacular recipe (numeric ID)
+    const recipe_info = await getRecipeInformation(recipe_id);
+    const { id, title, readyInMinutes, image, aggregateLikes, vegan, vegetarian, glutenFree } = recipe_info.data;
 
     return {
-        id: id,
-        title: title,
-        readyInMinutes: readyInMinutes,
-        image: image,
-        popularity: aggregateLikes,
-        vegan: vegan,
-        vegetarian: vegetarian,
-        glutenFree: glutenFree,
-        
+      id,
+      title,
+      readyInMinutes,
+      image,
+      popularity: aggregateLikes,
+      vegan,
+      vegetarian,
+      glutenFree
+    };
+  } else {
+    // Personal or family recipe (string ID)
+    const sql = `
+      SELECT id, title, image, readyInMinutes,
+             aggregateLikes, vegan, vegetarian, glutenFree
+      FROM recipes
+      WHERE id = ?
+    `;
+    const results = await db.query(sql, [recipe_id]);
+
+    if (results.length === 0) {
+      throw { status: 404, message: "Recipe not found in database" };
     }
+
+    const r = results[0];
+    return {
+      id: r.id,
+      title: r.title,
+      readyInMinutes: r.readyInMinutes,
+      image: r.image,
+      popularity: r.aggregateLikes,
+      vegan: r.vegan,
+      vegetarian: r.vegetarian,
+      glutenFree: r.glutenFree
+    };
+  }
 }
 
-async function getRandomRecipesFromDB() {
-  try {
+
+// ---------- RANDOM RECIPES ----------
+
+async function getRandomRecipesForUser(user_id) {
+  // 50% chance from Spoonacular or DB
+  const fromDB = Math.random() < 0.5;
+
+  if (fromDB) {
     const sql = `
-      SELECT 
-        id, title, image, readyInMinutes AS Time, 
-        aggregateLikes AS popularity,
-        vegan, vegetarian, glutenFree
+      SELECT id, title, image, readyInMinutes AS Time,
+             aggregateLikes AS popularity, vegan, vegetarian, glutenFree
       FROM recipes
+      WHERE user_id = ?
+      UNION
+      SELECT id, title, image, readyInMinutes AS Time,
+             aggregateLikes AS popularity, vegan, vegetarian, glutenFree
+      FROM familyrecipes
+      WHERE user_id = ?
       ORDER BY RAND()
       LIMIT 3
     `;
-
-    const rawResults = await db.query(sql);
-
-    const formattedResults = rawResults.map(recipe => ({
-      id: recipe.id,
-      image: recipe.image,
-      title: recipe.title,
-      Time: recipe.Time,
-      popularity: recipe.popularity,
-      vegan: recipe.vegan,
-      vegetarian: recipe.vegetarian,
-      glutenFree: recipe.glutenFree,
-      isWatched: false,    // placeholder
-      isFavorite: false    // placeholder
+    const results = await db.query(sql, [user_id, user_id]);
+    return results.map(r => ({
+      id: r.id,
+      image: r.image,
+      title: r.title,
+      Time: r.Time,
+      popularity: r.popularity,
+      vegan: r.vegan,
+      vegetarian: r.vegetarian,
+      glutenFree: r.glutenFree,
+      isWatched: false,
+      isFavorite: false
     }));
-
-    return formattedResults;
-  } catch (error) {
-    console.error("Error fetching random recipes from DB:", error.message);
-    throw error;
+  } else {
+    return await get3RandomSpoonacularRecipes();
   }
+}
+
+async function get3RandomSpoonacularRecipes() {
+  const response = await axios.get(`${api_domain}/random`, {
+    params: {
+      number: 3,
+      apiKey: process.env.spoonacular_apiKey
+    }
+  });
+
+  return response.data.recipes.map((r) => ({
+    id: r.id,
+    image: r.image,
+    title: r.title,
+    Time: r.readyInMinutes,
+    popularity: r.aggregateLikes,
+    vegan: r.vegan,
+    vegetarian: r.vegetarian,
+    glutenFree: r.glutenFree,
+    isWatched: false,
+    isFavorite: false
+  }));
 }
 
 
@@ -75,7 +129,7 @@ async function getFamilyRecipesByUser(user_id) {
   const sql = `
     SELECT id, title, image, readyInMinutes AS Time,
            aggregateLikes AS popularity, vegan, vegetarian, glutenFree,
-           recipeOwner, occasion
+           recipeOwner, occasion, ingredients, instructions, servings
     FROM familyrecipes
     WHERE user_id = ?
   `;

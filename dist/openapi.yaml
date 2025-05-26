@@ -498,6 +498,25 @@ components:
           type: boolean
           description: Indicates if its a gluten-free recpie.
           example: False
+        intolerances:   #ADDED IDAN
+         type: array
+         items:
+          type: string
+          enum:
+            - Dairy
+            - Egg
+            - Gluten
+            - Grain
+            - Peanut
+            - Seafood
+            - Sesame
+            - Shellfish
+            - Soy
+            - Sulfite
+            - Tree Nut
+            - Wheat
+          description: List of intolerances for which the recipe may be problematic
+          example: [Gluten, Dairy]
         isWatched:
           type: boolean
           description: True if user watched this recipe.
@@ -551,6 +570,25 @@ components:
           type: boolean
           description: True if user added this recipe to favorite list.
           example: false
+        intolerances:   #ADDED IDAN
+         type: array
+         items:
+          type: string
+          enum:
+            - Dairy
+            - Egg
+            - Gluten
+            - Grain
+            - Peanut
+            - Seafood
+            - Sesame
+            - Shellfish
+            - Soy
+            - Sulfite
+            - Tree Nut
+            - Wheat
+          description: List of intolerances for which the recipe may be problematic
+          example: [Gluten, Dairy]
         ingredients:
           type: array
           items:
@@ -611,6 +649,25 @@ components:
           type: boolean
           description: Indicates for gluten-free recpie.
           example: false
+        intolerances:   #ADDED IDAN
+         type: array
+         items:
+          type: string
+          enum:
+            - Dairy
+            - Egg
+            - Gluten
+            - Grain
+            - Peanut
+            - Seafood
+            - Sesame
+            - Shellfish
+            - Soy
+            - Sulfite
+            - Tree Nut
+            - Wheat
+          description: List of intolerances for which the recipe may be problematic
+          example: [Gluten, Dairy]
         isWatched:
           type: boolean
           description: True if the registerd user has entered the URL.
@@ -695,6 +752,25 @@ components:
                 description: ingredient quantity.
                 example: 5
           description: List of ingredients and their quantities.
+        intolerances:   #ADDED IDAN
+         type: array
+         items:
+          type: string
+          enum:
+            - Dairy
+            - Egg
+            - Gluten
+            - Grain
+            - Peanut
+            - Seafood
+            - Sesame
+            - Shellfish
+            - Soy
+            - Sulfite
+            - Tree Nut
+            - Wheat
+          description: List of intolerances for which the recipe may be problematic
+          example: [Gluten, Dairy]
         instructions:
           type: string
           description:  instructions on how to make the meal
@@ -738,6 +814,25 @@ components:
           type: boolean
           description: Indicates for gluten-free meal.
           example: true
+        intolerances:   #ADDED IDAN
+         type: array
+         items:
+          type: string
+          enum:
+            - Dairy
+            - Egg
+            - Gluten
+            - Grain
+            - Peanut
+            - Seafood
+            - Sesame
+            - Shellfish
+            - Soy
+            - Sulfite
+            - Tree Nut
+            - Wheat
+          description: List of intolerances for which the recipe may be problematic
+          example: [Gluten, Dairy]
 
     FullPrivateRecipe:
       type: object
@@ -772,6 +867,25 @@ components:
           type: boolean
           description: Indicates for gluten-free recipe.
           example: true
+        intolerances:   #ADDED IDAN
+         type: array
+         items:
+          type: string
+          enum:
+            - Dairy
+            - Egg
+            - Gluten
+            - Grain
+            - Peanut
+            - Seafood
+            - Sesame
+            - Shellfish
+            - Soy
+            - Sulfite
+            - Tree Nut
+            - Wheat
+          description: List of intolerances for which the recipe may be problematic
+          example: [Gluten, Dairy]
         ingredients:
           type: array
           items:
@@ -804,6 +918,7 @@ components:
         - vegetarian
         - glutenFree
         - ingredients
+        - intolerances  #ADDED IDAN
         - instructions
         - servings
   
@@ -835,6 +950,25 @@ components:
           type: boolean
           description: Indicates for gluten-free rcepie .
           example: true
+        intolerances:   #ADDED IDAN
+         type: array
+         items:
+          type: string
+          enum:
+            - Dairy
+            - Egg
+            - Gluten
+            - Grain
+            - Peanut
+            - Seafood
+            - Sesame
+            - Shellfish
+            - Soy
+            - Sulfite
+            - Tree Nut
+            - Wheat
+          description: List of intolerances for which the recipe may be problematic
+          example: [Gluten, Dairy]
         ingredients:
           type: array
           items:

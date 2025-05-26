@@ -59,7 +59,8 @@ router.post("/Login", async (req, res, next) => {
     }
 
     // Set cookie
-    req.session.username = user.username;
+    req.session.username = user.username; //yuval ; Added this row 
+    req.session.user_id = user.user_id
     console.log("session user_id login: " + req.session.user_id);
 
     // return cookie

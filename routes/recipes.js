@@ -6,35 +6,43 @@ router.get("/", (req, res) => res.send("im here"));
 
 
 /**
- * This path returns three random recipes from the DB
+ * This path returns three random recipes from Spooncular or DB 
  */
 router.get("/Explore", async (req, res, next) => {
   try {
-    const recipes = await recipes_utils.getRandomRecipesFromDB();
-    res.send(recipes);
+    const isLoggedIn = !!req.session?.user_id;
+
+    if (!isLoggedIn) {
+      const spoonacularRecipes = await recipes_utils.getRandomSpoonacularRecipes(3);
+      return res.send(spoonacularRecipes);
+    }
+
+    const dbRecipes = await recipes_utils.getRandomRecipesFromDB(); // up to 3
+    const spoonacularRecipes = await recipes_utils.getRandomSpoonacularRecipes(3 - dbRecipes.length);
+
+    const combined = [...dbRecipes, ...spoonacularRecipes];
+    res.send(combined);
   } catch (error) {
     next(error);
   }
 });
 
 
+
 router.get("/Family", async (req, res, next) => {
   try {
-    if (!req.session || !req.session.user_id) {
-      return res.status(401).send("User not logged in");
-    }
-
-    const recipes = await recipes_utils.getFamilyRecipesByUser(req.session.user_id);
+    const user_id = req.session.user_id;
+    const recipes = await recipes_utils.getFamilyRecipesByUser(user_id);
 
     if (recipes.length < 3) {
-      return res.status(204).send("we need at least 3 recipes, we must have yuval mom's cheesecake in it");
+      return res.status(204).send("we need at least 3 recipes");
     }
 
     res.status(200).send(recipes);
   } catch (error) {
     next(error);
   }
-});
+})
 
 
 router.get("/search", async (req, res, next) => {

@@ -60,33 +60,35 @@ router.post("/my_recipes", async (req, res, next) => {
     const ingredients = req.body.ingredients.map(i => i.name);
     const intolerances = recipe_utils.detectIntolerances(ingredients);
 
-    await DButils.execQuery(
-      `INSERT INTO recipes (
-         id, title, image, readyInMinutes, aggregateLikes,
-         vegan, vegetarian, glutenFree, instructions, cuisine,
-         ingredients, intolerances
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.body.id,
-        req.body.title,
-        req.body.image,
-        req.body.readyInMinutes,
-        req.body.aggregateLikes,
-        req.body.vegan,
-        req.body.vegetarian,
-        req.body.glutenFree,
-        req.body.instructions,
-        req.body.cuisine,
-        JSON.stringify(req.body.ingredients),
-        JSON.stringify(intolerances)
-      ]
-    );
+await DButils.execQuery(
+  `INSERT INTO recipes (
+     id, title, image, readyInMinutes, aggregateLikes,
+     vegan, vegetarian, glutenFree, instructions, cuisine,
+     ingredients, intolerances
+   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    req.body.id,
+    req.body.title,
+    req.body.image,
+    req.body.readyInMinutes,
+    req.body.aggregateLikes,
+    req.body.vegan,
+    req.body.vegetarian,
+    req.body.glutenFree,
+    req.body.instructions,
+    req.body.cuisine,
+    JSON.stringify(req.body.ingredients),  
+    JSON.stringify(intolerances)          
+  ]
+);
 
     res.status(201).send({ message: "Recipe added successfully", success: true });
   } catch (error) {
+    console.error("Error in POST /my_recipes:", error.message);
     next(error);
   }
 });
+
 
 
 

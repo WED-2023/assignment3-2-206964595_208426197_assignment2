@@ -10,6 +10,9 @@ var cors = require('cors')
 var app = express();
 app.use(logger("dev")); //logger
 app.use(express.json()); // parse application/json
+//const cookieParser = require("cookie-parser"); //*****yuval; trying to save the user_id cookie****//
+//app.use(cookieParser());//*****yuval; trying to save the user_id cookie****//
+
 app.use(
   session({
     cookieName: "session", // the cookie key name
