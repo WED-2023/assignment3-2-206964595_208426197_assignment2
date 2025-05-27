@@ -1,3 +1,4 @@
+
 var express = require("express");
 var router = express.Router();
 const DButils = require("./utils/DButils");
@@ -57,34 +58,34 @@ router.post("/my_recipes", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
 
-    const ingredients = req.body.ingredients.map(i => i.name);
-    const intolerances = recipe_utils.detectIntolerances(ingredients);
+    const ingredients = req.body.ingredients;
+    const intolerances = req.body.intolerances || [];
 
-await DButils.execQuery(
-  `INSERT INTO recipes (
-     id, title, image, readyInMinutes, aggregateLikes,
-     vegan, vegetarian, glutenFree, instructions, cuisine,
-     ingredients, intolerances
-   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  [
-    req.body.id,
-    req.body.title,
-    req.body.image,
-    req.body.readyInMinutes,
-    req.body.aggregateLikes,
-    req.body.vegan,
-    req.body.vegetarian,
-    req.body.glutenFree,
-    req.body.instructions,
-    req.body.cuisine,
-    JSON.stringify(req.body.ingredients),  
-    JSON.stringify(intolerances)          
-  ]
-);
+    await DButils.execQuery(
+      `INSERT INTO myrecipes (
+         id, title, image, readyInMinutes, aggregateLikes,
+         vegan, vegetarian, glutenFree, instructions, cuisine,
+         ingredients, intolerances, creator_id
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.body.id,
+        req.body.title,
+        req.body.image,
+        req.body.readyInMinutes,
+        req.body.aggregateLikes,
+        req.body.vegan,
+        req.body.vegetarian,
+        req.body.glutenFree,
+        req.body.instructions,
+        req.body.cuisine,
+        JSON.stringify(ingredients),
+        JSON.stringify(intolerances),
+        user_id
+      ]
+    );
 
     res.status(201).send({ message: "Recipe added successfully", success: true });
   } catch (error) {
-    console.error("Error in POST /my_recipes:", error.message);
     next(error);
   }
 });
@@ -98,10 +99,8 @@ router.post("/markwatched/:recipeId", async (req, res, next) => {
     res.status(200).send({ message: "Recipe marked as watched" });
   } catch (err) {
     next(err);
-  }
+  }
 });
-
-
 
 
 
