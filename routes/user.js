@@ -58,15 +58,15 @@ router.post("/my_recipes", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
 
-    const ingredients = req.body.ingredients;
-    const intolerances = req.body.intolerances || [];
+    const ingredients = req.body.ingredients.map(i => i.name);
+    const intolerances = recipe_utils.detectIntolerances(ingredients);
 
     await DButils.execQuery(
-      `INSERT INTO myrecipes (
+      `INSERT INTO recipes (
          id, title, image, readyInMinutes, aggregateLikes,
          vegan, vegetarian, glutenFree, instructions, cuisine,
-         ingredients, intolerances, creator_id
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ingredients, intolerances
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.body.id,
         req.body.title,
@@ -78,13 +78,69 @@ router.post("/my_recipes", async (req, res, next) => {
         req.body.glutenFree,
         req.body.instructions,
         req.body.cuisine,
-        JSON.stringify(ingredients),
-        JSON.stringify(intolerances),
-        user_id
+        JSON.stringify(req.body.ingredients),
+        JSON.stringify(intolerances)
       ]
     );
 
     res.status(201).send({ message: "Recipe added successfully", success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/my_recipes", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+
+    const myRecipes = await DButils.execQuery(
+      `SELECT id, title, image, readyInMinutes AS Time,
+              aggregateLikes AS popularity,
+              vegan, vegetarian, glutenFree
+       FROM myrecipes
+       WHERE creator_id = ?`,
+      [user_id]
+    );
+
+    res.status(200).send(myRecipes);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/my_recipes/:recipeId", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const recipeId = req.params.recipeId;
+
+    // שליפת המתכון לפי ID ולפי המשתמש המחובר
+    const results = await DButils.execQuery(
+      `SELECT *
+       FROM myrecipes
+       WHERE id = ? AND creator_id = ?`,
+      [recipeId, user_id]
+    );
+
+    // אם לא נמצא מתכון כזה או לא שייך למשתמש
+    if (results.length === 0) {
+      return res.status(404).send({
+        message: "Recipe not found",
+        success: false
+      });
+    }
+
+    const recipe = results[0];
+
+    // נבצע JSON.parse רק אם השדות הם מחרוזת (string)
+    if (typeof recipe.ingredients === "string") {
+      recipe.ingredients = JSON.parse(recipe.ingredients);
+    }
+
+    if (typeof recipe.intolerances === "string") {
+      recipe.intolerances = JSON.parse(recipe.intolerances);
+    }
+
+    res.status(200).send(recipe);
   } catch (error) {
     next(error);
   }
@@ -101,6 +157,63 @@ router.post("/markwatched/:recipeId", async (req, res, next) => {
     next(err);
   }
 });
+router.get("/lastWatchedRecipes", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+
+    // שליפת 3 המתכונים האחרונים שצפה בהם המשתמש
+    const watched = await DButils.execQuery(
+      `SELECT recipe_id
+       FROM watched_recipes
+       WHERE user_id = ?
+       ORDER BY watched_at DESC
+       LIMIT 3`,
+      [user_id]
+    );
+
+    const recipeIds = watched.map((r) => r.recipe_id);
+
+    if (recipeIds.length === 0) {
+      return res.status(200).send([]); // אין צפיות
+    }
+
+    const previews = await Promise.all(
+      recipeIds.map(async (id) => {
+        try {
+          const cleanId = id.trim();
+
+          // אם זה רק מספרים – Spoonacular
+          if (/^\d+$/.test(cleanId)) {
+            return await recipe_utils.getRecipeDetails(cleanId);
+          }
+
+          // אחרת – מתכון אישי (myrecipes)
+          const my = await DButils.execQuery(
+            `SELECT id, title, image, readyInMinutes AS Time,
+                    aggregateLikes AS popularity,
+                    vegan, vegetarian, glutenFree
+             FROM myrecipes
+             WHERE id = ?`,
+            [cleanId]
+          );
+          if (my.length > 0) return my[0];
+
+          return null; // לא נמצא
+        } catch (err) {
+          return null;
+        }
+      })
+    );
+
+    const validPreviews = previews.filter((r) => r !== null);
+    res.status(200).send(validPreviews);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+
 
 
 
