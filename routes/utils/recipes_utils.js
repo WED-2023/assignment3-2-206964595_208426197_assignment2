@@ -39,7 +39,7 @@ async function getRecipeDetails(recipe_id) {
     // Personal or family recipe (string ID)
     const sql = `
       SELECT *
-      FROM recipes
+      FROM myrecipes
       WHERE id = ?
       UNION
       SELECT *
@@ -78,7 +78,7 @@ async function getExploreRecipes(user_id) {
     const sql = `
       SELECT id, title, image, readyInMinutes AS Time,
              aggregateLikes AS popularity, vegan, vegetarian, glutenFree
-      FROM recipes
+      FROM myrecipes
       WHERE user_id = ?
       UNION
       SELECT id, title, image, readyInMinutes AS Time,
@@ -192,7 +192,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     let sql = `
       SELECT id, title, image, readyInMinutes AS Time,
              aggregateLikes AS popularity, vegan, vegetarian, glutenFree
-      FROM recipes
+      FROM myrecipes
       WHERE title LIKE ?
     `;
     const bindings = [`%${query}%`];
@@ -277,51 +277,72 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
   }
 }
 
-async function getRecipesPreview(user_id) {
-  const sql = `SELECT recipe_id FROM favoriterecipes WHERE user_id = ?`;
-  const results = await db.query(sql, [user_id]);
+async function getRecipesPreview(recipe_ids, user_id = null) {
+  const previews = [];
 
-  const previews = await Promise.all(
-    results.map(async ({ recipe_id }) => {
-      try {
-        
-        if (!isNaN(recipe_id)) {
+  for (const id of recipe_ids) {
+    try {
+      let recipe;
 
-          const recipe = await getRecipeInformation(recipe_id);
-          return {
-            id: recipe.data.id,
-            title: recipe.data.title,
-            image: recipe.data.image,
-            Time: recipe.data.readyInMinutes,
-            popularity: recipe.data.aggregateLikes,
-            vegan: recipe.data.vegan,
-            vegetarian: recipe.data.vegetarian,
-            glutenFree: recipe.data.glutenFree,
-          };
-        } else {
-          
-          const dbRecipe = await getRecipeDetails(recipe_id);
-          return {
-            id: dbRecipe.id,
-            title: dbRecipe.title,
-            image: dbRecipe.image,
-            Time: dbRecipe.readyInMinutes,
-            popularity: dbRecipe.popularity,
-            vegan: dbRecipe.vegan,
-            vegetarian: dbRecipe.vegetarian,
-            glutenFree: dbRecipe.glutenFree,
-          };
-        }
-      } catch (e) {
-        console.error(" Failed to fetch recipe preview for", recipe_id, e.message);
-        return null;
+      if (!isNaN(id)) {
+        // Spoonacular
+        const response = await getRecipeInformation(id);
+        const r = response.data;
+
+        recipe = {
+          id: r.id,
+          title: r.title,
+          image: r.image,
+          Time: r.readyInMinutes,
+          popularity: r.aggregateLikes,
+          vegan: r.vegan,
+          vegetarian: r.vegetarian,
+          glutenFree: r.glutenFree,
+
+        };
+      } else {
+        // DB: personal/family
+        const sql = `
+          SELECT id, title, image, readyInMinutes AS Time,
+                 aggregateLikes AS popularity, vegan, vegetarian, glutenFree
+          FROM myrecipes
+          WHERE id = ?
+          UNION
+          SELECT id, title, image, readyInMinutes AS Time,
+                 aggregateLikes AS popularity, vegan, vegetarian, glutenFree
+          FROM familyrecipes
+          WHERE id = ?
+        `;
+        const results = await db.query(sql, [id, id]);
+        if (results.length === 0) continue;
+        recipe = results[0];
       }
-    })
-  );
 
-  return previews.filter(p => p !== null); 
+      if (user_id) {
+        const [favRows] = await db.query(
+          `SELECT 1 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
+          [user_id, id]
+        );
+        const [watchedRows] = await db.query(
+          `SELECT 1 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
+          [user_id, id]
+        );
+        recipe.isFavorite = favRows.length > 0;
+        recipe.isWatched = watchedRows.length > 0;
+      } else {
+        recipe.isFavorite = false;
+        recipe.isWatched = false;
+      }
+
+      previews.push(recipe);
+    } catch (err) {
+      console.error(` Failed to fetch preview for recipe ${id}:`, err.message);
+  
+    }
+  }
+
+  return previews;
 }
-
 
 
 

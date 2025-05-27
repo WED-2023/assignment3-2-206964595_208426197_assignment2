@@ -1,7 +1,6 @@
 var express = require("express");
 var router = express.Router();
 const recipes_utils = require("./utils/recipes_utils");
-console.log("🧪", Object.keys(recipes_utils));
 
 router.get("/", (req, res) => res.send("im here"));
 
@@ -75,6 +74,7 @@ router.get("/search", async (req, res, next) => {
     if (results.length === 0) {
       return res.status(204).send("There are no matching recipes");
     }
+    req.session.lastSearchResults = results; //save results for "lastsearch" function #IDAN ADDED
 
     res.status(200).send(results);
   } catch (error) {
