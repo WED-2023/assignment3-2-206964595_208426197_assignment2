@@ -71,8 +71,8 @@ async function getRecipeDetails(recipe_id) {
   }
 }
 
-async function getRandomRecipesForUser(user_id) {
-  const fromDB = Math.random() < 0.5;
+async function getExploreRecipes(user_id) {
+  const fromDB = !!user_id && Math.random() < 0.5;
 
   if (fromDB) {
     const sql = `
@@ -89,7 +89,7 @@ async function getRandomRecipesForUser(user_id) {
       LIMIT 3
     `;
     const results = await db.query(sql, [user_id, user_id]);
-    return results.map(r => ({
+    return results.map((r) => ({
       id: r.id,
       image: r.image,
       title: r.title,
@@ -102,35 +102,33 @@ async function getRandomRecipesForUser(user_id) {
       isFavorite: false
     }));
   } else {
-    return await get3RandomSpoonacularRecipes();
+    const response = await axios.get(`${api_domain}/random`, {
+      params: {
+        number: 3,
+        apiKey: process.env.spoonacular_apiKey
+      }
+    });
+
+    return response.data.recipes.map((r) => ({
+      id: r.id,
+      image: r.image,
+      title: r.title,
+      Time: r.readyInMinutes,
+      popularity: r.aggregateLikes,
+      vegan: r.vegan,
+      vegetarian: r.vegetarian,
+      glutenFree: r.glutenFree,
+      isWatched: false,
+      isFavorite: false
+    }));
   }
 }
 
-async function get3RandomSpoonacularRecipes() {
-  const response = await axios.get(`${api_domain}/random`, {
-    params: {
-      number: 3,
-      apiKey: process.env.SPOONACULAR_API_KEY
-    }
-  });
 
-  return response.data.recipes.map((r) => ({
-    id: r.id,
-    image: r.image,
-    title: r.title,
-    Time: r.readyInMinutes,
-    popularity: r.aggregateLikes,
-    vegan: r.vegan,
-    vegetarian: r.vegetarian,
-    glutenFree: r.glutenFree,
-    isWatched: false,
-    isFavorite: false
-  }));
-}
 
 async function getFamilyRecipesByUser(user_id) {
   const sql = `
-    SELECT id, title, image, readyInMinutes AS Time,
+    SELECT id, user_id, title, image, readyInMinutes AS Time,
            aggregateLikes AS popularity, vegan, vegetarian, glutenFree,
            recipeOwner, occasion, ingredients, instructions, servings
     FROM familyrecipes
@@ -145,6 +143,42 @@ async function getFamilyRecipesByUser(user_id) {
   }));
 }
 
+async function getFamilyRecipeById(recipeId, user_id) {
+  const sql = `
+    SELECT id, user_id, title, image, readyInMinutes AS Time,
+           aggregateLikes AS popularity, vegan, vegetarian, glutenFree,
+           recipeOwner, occasion, ingredients, instructions, servings
+    FROM familyrecipes
+    WHERE id = ? AND user_id = ?
+  `;
+  const results = await db.query(sql, [recipeId, user_id]);
+
+  if (results.length === 0) {
+    throw { status: 404, message: "Family recipe not found" };
+  }
+
+  const recipe = results[0];
+
+  return {
+    id: recipe.id,
+    title: recipe.title,
+    image: recipe.image,
+    Time: recipe.Time,
+    popularity: recipe.popularity,
+    vegan: recipe.vegan,
+    vegetarian: recipe.vegetarian,
+    glutenFree: recipe.glutenFree,
+    recipeOwner: recipe.recipeOwner,
+    occasion: recipe.occasion,
+    ingredients: recipe.ingredients,
+    instructions: recipe.instructions,
+    servings: recipe.servings,
+    isWatched: false,
+    isFavorite: false
+  };
+}
+
+
 async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) {
   try {
     if (!query) {
@@ -154,6 +188,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     const allowed = [5, 10, 15];
     const limit = allowed.includes(Number(number)) ? Number(number) : 5;
 
+    // ---------- FROM DB ----------
     let sql = `
       SELECT id, title, image, readyInMinutes AS Time,
              aggregateLikes AS popularity, vegan, vegetarian, glutenFree
@@ -186,9 +221,8 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     sql += ` LIMIT ?`;
     bindings.push(limit);
 
-    const results = await db.query(sql, bindings);
-
-    return results.map((r) => ({
+    const dbResults = await db.query(sql, bindings);
+    const mappedDbResults = dbResults.map((r) => ({
       id: r.id,
       image: r.image,
       title: r.title,
@@ -200,11 +234,96 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
       isWatched: false,
       isFavorite: false
     }));
+
+    // ---------- FROM SPOONACULAR ----------
+    const spoonacularResponse = await axios.get('https://api.spoonacular.com/recipes/complexSearch', {
+      params: {
+        query,
+        number: limit,
+        cuisine,
+        diet,
+        intolerances: intolerance,
+        apiKey: process.env.spoonacular_apiKey
+      }
+    });
+
+    const ids = spoonacularResponse.data.results.map(r => r.id);
+
+    const detailedRecipes = await Promise.all(ids.map(async (id) => {
+      const info = await axios.get(`https://api.spoonacular.com/recipes/${id}/information`, {
+        params: { includeNutrition: false, apiKey: process.env.spoonacular_apiKey }
+      });
+      const r = info.data;
+      return {
+        id: r.id,
+        image: r.image,
+        title: r.title,
+        Time: r.readyInMinutes,
+        popularity: r.aggregateLikes,
+        vegan: r.vegan,
+        vegetarian: r.vegetarian,
+        glutenFree: r.glutenFree,
+        isWatched: false,
+        isFavorite: false
+      };
+    }));
+
+    // Combine and return
+    return [...mappedDbResults, ...detailedRecipes];
+
   } catch (error) {
     console.error("searchRecipes error:", error.message);
     throw error;
   }
 }
+
+async function getRecipesPreview(user_id) {
+  const sql = `SELECT recipe_id FROM favoriterecipes WHERE user_id = ?`;
+  const results = await db.query(sql, [user_id]);
+
+  const previews = await Promise.all(
+    results.map(async ({ recipe_id }) => {
+      try {
+        
+        if (!isNaN(recipe_id)) {
+
+          const recipe = await getRecipeInformation(recipe_id);
+          return {
+            id: recipe.data.id,
+            title: recipe.data.title,
+            image: recipe.data.image,
+            Time: recipe.data.readyInMinutes,
+            popularity: recipe.data.aggregateLikes,
+            vegan: recipe.data.vegan,
+            vegetarian: recipe.data.vegetarian,
+            glutenFree: recipe.data.glutenFree,
+          };
+        } else {
+          
+          const dbRecipe = await getRecipeDetails(recipe_id);
+          return {
+            id: dbRecipe.id,
+            title: dbRecipe.title,
+            image: dbRecipe.image,
+            Time: dbRecipe.readyInMinutes,
+            popularity: dbRecipe.popularity,
+            vegan: dbRecipe.vegan,
+            vegetarian: dbRecipe.vegetarian,
+            glutenFree: dbRecipe.glutenFree,
+          };
+        }
+      } catch (e) {
+        console.error(" Failed to fetch recipe preview for", recipe_id, e.message);
+        return null;
+      }
+    })
+  );
+
+  return previews.filter(p => p !== null); 
+}
+
+
+
 
 function detectIntolerances(ingredients) {
   const intoleranceMap = {
@@ -240,10 +359,10 @@ function detectIntolerances(ingredients) {
 module.exports = {
   getRecipeInformation,
   getRecipeDetails,
-  getRandomRecipesForUser,
-  get3RandomSpoonacularRecipes,
+  getExploreRecipes,
   getFamilyRecipesByUser,
+  getFamilyRecipeById,
   searchRecipes,
+  getRecipesPreview,
   detectIntolerances
 };
-
