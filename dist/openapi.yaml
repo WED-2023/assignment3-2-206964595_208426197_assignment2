@@ -387,6 +387,27 @@ paths:
                   $ref: "#/components/schemas/previewReceipe"
         "401":
           description: Unauthorized
+          
+  /users/familyrecipes:
+    post:
+      tags:
+        - Users
+      summary: Create a new family recipe
+      description: Adds a new family recipe to the user's collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyRecipeInput'
+      responses:
+        "201":
+          description: Family recipe created successfully
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad request
+  
 
 components:
   schemas:
@@ -992,3 +1013,60 @@ components:
           type: integer
           description: Number of servings.
           example: 2
+          
+    FamilyRecipeInput:
+      type: object
+      required:
+        - id
+        - title
+        - image
+        - readyInMinutes
+        - aggregateLikes
+        - vegan
+        - vegetarian
+        - glutenFree
+        - recipeOwner
+        - occasion
+      properties:
+        id:
+          type: string
+          description: Unique ID for the family recipe (e.g., "FAM-grandma-cake")
+        title:
+          type: string
+          example: Grandma's Honey Cake
+        image:
+          type: string
+          format: uri
+          example: https://example.com/images/cake.jpg
+        readyInMinutes:
+          type: integer
+          example: 60
+        aggregateLikes:
+          type: integer
+          example: 50
+        vegan:
+          type: boolean
+        vegetarian:
+          type: boolean
+        glutenFree:
+          type: boolean
+        recipeOwner:
+          type: string
+          example: Grandma Rachel
+        occasion:
+          type: string
+          example: Friday Dinner
+        intolerances:
+          type: array
+          items:
+            type: string
+            enum:
+              - gluten
+              - dairy
+              - wheat
+              - soy
+              - peanut
+              - shellfish
+              - egg
+              - grain
+          example: ["gluten", "egg"]
