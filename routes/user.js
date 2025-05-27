@@ -89,6 +89,17 @@ await DButils.execQuery(
   }
 });
 
+router.post("/markwatched/:recipeId", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const recipe_id = req.params.recipeId;
+
+    await user_utils.markAsWatched(user_id, recipe_id);
+    res.status(200).send({ message: "Recipe marked as watched" });
+  } catch (err) {
+    next(err);
+  }
+});
 
 
 

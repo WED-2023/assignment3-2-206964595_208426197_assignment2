@@ -1,49 +1,52 @@
 const axios = require("axios");
+require("dotenv").config();
 const db = require("./MySql");
 const api_domain = "https://api.spoonacular.com/recipes";
 
-
-
-/**
- * Get recipes list from spooncular response and extract the relevant recipe data for preview
- * @param {*} recipes_info 
- */
-
-
 async function getRecipeInformation(recipe_id) {
-    return await axios.get(`${api_domain}/${recipe_id}/information`, {
-        params: {
-            includeNutrition: false,
-            apiKey: process.env.spooncular_apiKey
-        }
-    });
+  return await axios.get(`${api_domain}/${recipe_id}/information`, {
+    params: {
+      includeNutrition: false,
+      apiKey: process.env.spoonacular_apiKey
+    }
+  });
 }
 
 async function getRecipeDetails(recipe_id) {
   if (!isNaN(recipe_id)) {
     // Spoonacular recipe (numeric ID)
     const recipe_info = await getRecipeInformation(recipe_id);
-    const { id, title, readyInMinutes, image, aggregateLikes, vegan, vegetarian, glutenFree } = recipe_info.data;
+    const r = recipe_info.data;
 
     return {
-      id,
-      title,
-      readyInMinutes,
-      image,
-      popularity: aggregateLikes,
-      vegan,
-      vegetarian,
-      glutenFree
+      id: r.id,
+      title: r.title,
+      readyInMinutes: r.readyInMinutes,
+      image: r.image,
+      popularity: r.aggregateLikes,
+      vegan: r.vegan,
+      vegetarian: r.vegetarian,
+      glutenFree: r.glutenFree,
+      ingredients: r.extendedIngredients?.map(i => ({
+        name: i.name,
+        amount: i.amount,
+        unit: i.unit
+      })),
+      instructions: r.instructions,
+      servings: r.servings
     };
   } else {
     // Personal or family recipe (string ID)
     const sql = `
-      SELECT id, title, image, readyInMinutes,
-             aggregateLikes, vegan, vegetarian, glutenFree
+      SELECT *
       FROM recipes
       WHERE id = ?
+      UNION
+      SELECT *
+      FROM familyrecipes
+      WHERE id = ?
     `;
-    const results = await db.query(sql, [recipe_id]);
+    const results = await db.query(sql, [recipe_id, recipe_id]);
 
     if (results.length === 0) {
       throw { status: 404, message: "Recipe not found in database" };
@@ -58,16 +61,17 @@ async function getRecipeDetails(recipe_id) {
       popularity: r.aggregateLikes,
       vegan: r.vegan,
       vegetarian: r.vegetarian,
-      glutenFree: r.glutenFree
+      glutenFree: r.glutenFree,
+      ingredients: JSON.parse(r.ingredients),
+      instructions: r.instructions,
+      servings: r.servings,
+      ...(r.recipeOwner && { recipeOwner: r.recipeOwner }),
+      ...(r.occasion && { occasion: r.occasion })
     };
   }
 }
 
-
-// ---------- RANDOM RECIPES ----------
-
 async function getRandomRecipesForUser(user_id) {
-  // 50% chance from Spoonacular or DB
   const fromDB = Math.random() < 0.5;
 
   if (fromDB) {
@@ -106,7 +110,7 @@ async function get3RandomSpoonacularRecipes() {
   const response = await axios.get(`${api_domain}/random`, {
     params: {
       number: 3,
-      apiKey: process.env.spoonacular_apiKey
+      apiKey: process.env.SPOONACULAR_API_KEY
     }
   });
 
@@ -124,7 +128,6 @@ async function get3RandomSpoonacularRecipes() {
   }));
 }
 
-
 async function getFamilyRecipesByUser(user_id) {
   const sql = `
     SELECT id, title, image, readyInMinutes AS Time,
@@ -141,7 +144,6 @@ async function getFamilyRecipesByUser(user_id) {
     isFavorite: false
   }));
 }
-
 
 async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) {
   try {
@@ -176,9 +178,9 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     }
 
     if (intolerance) {
-    const intoleranceArray = intolerance.split(",").map(s => s.trim());
-    sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
-    bindings.push(JSON.stringify(intoleranceArray));
+      const intoleranceArray = intolerance.split(",").map(s => s.trim());
+      sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
+      bindings.push(JSON.stringify(intoleranceArray));
     }
 
     sql += ` LIMIT ?`;
@@ -203,7 +205,6 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     throw error;
   }
 }
-
 
 function detectIntolerances(ingredients) {
   const intoleranceMap = {
@@ -236,20 +237,13 @@ function detectIntolerances(ingredients) {
   return Array.from(detected);
 }
 
-
-
-
-
-
-exports.getRecipeDetails = getRecipeDetails;
-exports.getRandomRecipesFromDB = getRandomRecipesFromDB;
-exports.getFamilyRecipesByUser = getFamilyRecipesByUser;
-exports.searchRecipes = searchRecipes;
-exports.detectIntolerances = detectIntolerances;
-
-
-
-
-
-
+module.exports = {
+  getRecipeInformation,
+  getRecipeDetails,
+  getRandomRecipesForUser,
+  get3RandomSpoonacularRecipes,
+  getFamilyRecipesByUser,
+  searchRecipes,
+  detectIntolerances
+};
 
