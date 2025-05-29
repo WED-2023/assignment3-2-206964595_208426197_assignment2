@@ -5,6 +5,7 @@ const DButils = require("./utils/DButils");
 const user_utils = require("./utils/user_utils");
 const recipe_utils = require("./utils/recipes_utils");
 
+
 /**
  * Authenticate all incoming requests by middleware
  */
@@ -58,36 +59,39 @@ router.post("/my_recipes", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
 
-    const ingredients = req.body.ingredients.map(i => i.name);
-    const intolerances = recipe_utils.detectIntolerances(ingredients);
+    // 🔽 הכנס כאן את הקוד לטיפול ברשימת המרכיבים
+    let ingredients = req.body.ingredients || [];
 
-    await DButils.execQuery(
-      `INSERT INTO recipes (
-         id, title, image, readyInMinutes, aggregateLikes,
-         vegan, vegetarian, glutenFree, instructions, cuisine,
-         ingredients, intolerances
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.body.id,
-        req.body.title,
-        req.body.image,
-        req.body.readyInMinutes,
-        req.body.aggregateLikes,
-        req.body.vegan,
-        req.body.vegetarian,
-        req.body.glutenFree,
-        req.body.instructions,
-        req.body.cuisine,
-        JSON.stringify(req.body.ingredients),
-        JSON.stringify(intolerances)
-      ]
-    );
+    if (!Array.isArray(ingredients)) {
+      throw { status: 400, message: "Ingredients must be an array" };
+    }
 
-    res.status(201).send({ message: "Recipe added successfully", success: true });
+    if (ingredients.length > 0 && typeof ingredients[0] === "object" && "name" in ingredients[0]) {
+      ingredients = ingredients.map(i => i.name);
+    }
+
+    const intolerance = recipe_utils.detectIntolerances(ingredients);
+
+    // ✨ העבר את כל הנתונים לפונקציה utils
+    const id = await recipe_utils.createPersonalRecipe(user_id, {
+      title: req.body.title,
+      image: req.body.image,
+      readyInMinutes: req.body.readyInMinutes,
+      ingredients,
+      instructions: req.body.instructions,
+      servings: req.body.servings,
+      vegan: req.body.vegan,
+      vegetarian: req.body.vegetarian,
+      glutenFree: req.body.glutenFree,
+      intolerance // ✔️ זה השם שהפונקציה מצפה לו
+    });
+
+    res.status(201).send({ message: "Personal recipe created successfully", id });
   } catch (error) {
     next(error);
   }
 });
+
 
 router.get("/my_recipes", async (req, res, next) => {
   try {
@@ -145,6 +149,53 @@ router.get("/my_recipes/:recipeId", async (req, res, next) => {
     next(error);
   }
 });
+
+
+
+router.post("/family", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const id = await recipe_utils.createFamilyRecipe(user_id, req.body);
+    res.status(201).send({ message: "Family recipe created successfully", id });
+  } catch (error) {
+    console.error("Error creating family recipe:", error.message);
+    next(error);
+  }
+});
+
+
+router.get("/Family", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const recipes = await recipe_utils.getFamilyRecipesByUser(user_id);
+
+    if (recipes.length < 3) {
+      return res.status(204).send("we need at least 3 recipes");
+    }
+
+    res.status(200).send(recipes);
+  } catch (error) {
+    next(error);
+  }
+})
+
+
+router.get("/Family/:recipeId", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const recipeId = req.params.recipeId;
+    const recipe = await recipe_utils.getFamilyRecipeById(recipeId, user_id);
+    res.status(200).send(recipe);
+  } catch (error) {
+    if (error.status === 404) {
+      res.status(404).send(error.message);
+    } else {
+      next(error);
+    }
+  }
+});
+
+
 
 router.post("/markwatched/:recipeId", async (req, res, next) => {
   try {
@@ -212,6 +263,36 @@ router.get("/lastWatchedRecipes", async (req, res, next) => {
   }
 });
 
+router.get("/lastsearch", async (req, res, next) => {
+
+  try {
+
+    const results = req.session.lastSearchResults;
+
+
+
+    if (!results || results.length === 0) {
+
+      return res.status(204).send("No previous search results");
+
+    }
+
+
+
+    res.status(200).send(results);
+
+  } catch (error) {
+
+    next(error);
+
+  }
+
+});
+
+
+
+
+
 
 
 
@@ -219,3 +300,6 @@ router.get("/lastWatchedRecipes", async (req, res, next) => {
 
 
 module.exports = router;
+
+
+

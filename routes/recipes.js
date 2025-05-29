@@ -27,39 +27,6 @@ router.get("/Explore", async (req, res) => {
 
 
 
-
-router.get("/Family", async (req, res, next) => {
-  try {
-    const user_id = req.session.user_id;
-    const recipes = await recipes_utils.getFamilyRecipesByUser(user_id);
-
-    if (recipes.length < 3) {
-      return res.status(204).send("we need at least 3 recipes");
-    }
-
-    res.status(200).send(recipes);
-  } catch (error) {
-    next(error);
-  }
-})
-
-router.get("/Family/:recipeId", async (req, res, next) => {
-  try {
-    const user_id = req.session.user_id;
-    const recipeId = req.params.recipeId;
-    const recipe = await recipes_utils.getFamilyRecipeById(recipeId, user_id);
-    res.status(200).send(recipe);
-  } catch (error) {
-    if (error.status === 404) {
-      res.status(404).send(error.message);
-    } else {
-      next(error);
-    }
-  }
-});
-
-
-
 router.get("/search", async (req, res, next) => {
   try {
     const { query, number, cuisine, diet, intolerance } = req.query;
@@ -101,6 +68,20 @@ router.get("/:recipeId", async (req, res, next) => {
     next(error);
   }
 });
+
+
+router.post("/:recipeId/like", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const { recipeId } = req.params;
+
+    await user_utils.likeRecipe(user_id, recipeId);
+    res.status(200).send({ message: "Recipe liked successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 
 

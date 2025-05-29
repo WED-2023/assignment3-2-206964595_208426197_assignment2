@@ -223,6 +223,25 @@ paths:
         "400":
           description: Query parameter is missing
 
+          
+  /recipes/{recipeId}/like:
+  post:
+    tags:
+      - Recipes
+    summary: Like a recipe
+    parameters:
+      - name: recipeId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Like added
+      '400':
+        description: Bad request
+
+        
   /users/favorites:
     get:
       tags:
@@ -388,7 +407,7 @@ paths:
         "401":
           description: Unauthorized
           
-  /users/familyrecipes:
+  /users/family:
     post:
       tags:
         - Users

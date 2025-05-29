@@ -125,6 +125,45 @@ async function getExploreRecipes(user_id) {
 }
 
 
+async function createPersonalRecipe(user_id, recipeData) {
+  const {
+    title,
+    image,
+    readyInMinutes,
+    ingredients,
+    instructions,
+    servings,
+    vegan,
+    vegetarian,
+    glutenFree,
+    intolerance
+  } = recipeData;
+
+  const id = await generateUniqueId("p", "myrecipes");
+
+  const sql = `
+    INSERT INTO myrecipes (id, creator_id, title, image, readyInMinutes, ingredients, instructions, servings, vegan, vegetarian, glutenFree, intolerances)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  await db.query(sql, [
+    id,
+    user_id,
+    title,
+    image,
+    readyInMinutes,
+    JSON.stringify(ingredients),
+    instructions,
+    servings,
+    vegan,
+    vegetarian,
+    glutenFree,
+    JSON.stringify(intolerance)
+  ]);
+
+  return id;
+}
+
 
 async function getFamilyRecipesByUser(user_id) {
   const sql = `
@@ -179,6 +218,52 @@ async function getFamilyRecipeById(recipeId, user_id) {
 }
 
 
+// utils/recipes_utils.js
+async function createFamilyRecipe(user_id, recipeData) {
+  const {
+    title,
+    image,
+    readyInMinutes,
+    ingredients,
+    instructions,
+    servings,
+    recipeOwner,
+    occasion,
+    vegan,
+    vegetarian,
+    glutenFree,
+    intolerance
+  } = recipeData;
+
+  const id = await generateUniqueId("f", "familyrecipes");
+
+  const sql = `
+    INSERT INTO familyrecipes (id, user_id, title, image, readyInMinutes, ingredients, instructions, servings, recipeOwner, occasion, vegan, vegetarian, glutenFree, intolerance)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  await db.query(sql, [
+    id,
+    user_id,
+    title,
+    image,
+    readyInMinutes,
+    JSON.stringify(ingredients),
+    instructions,
+    servings,
+    recipeOwner,
+    occasion,
+    vegan,
+    vegetarian,
+    glutenFree,
+    JSON.stringify(intolerance)
+  ]);
+
+  return id;
+}
+
+
+
 async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) {
   try {
     if (!query) {
@@ -194,6 +279,12 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
              aggregateLikes AS popularity, vegan, vegetarian, glutenFree
       FROM myrecipes
       WHERE title LIKE ?
+
+            UNION
+
+      SELECT id, title, image, readyInMinutes AS Time,
+             aggregateLikes AS popularity, vegan, vegetarian, glutenFree
+      FROM familyrecipes
     `;
     const bindings = [`%${query}%`];
 
@@ -377,6 +468,28 @@ function detectIntolerances(ingredients) {
   return Array.from(detected);
 }
 
+async function generateUniqueId(prefix, table) {
+  let suffix = 1;
+  let id;
+  while (true) {
+    id = `${prefix}_${suffix}`;
+    const result = await db.query(`SELECT id FROM ${table} WHERE id = ?`, [id]);
+    if (result.length === 0) break;
+    suffix++;
+  }
+  return id;
+}
+
+async function getRecipeLikeCount(recipe_id) {
+  const result = await DButils.execQuery(
+    `SELECT COUNT(*) AS likes FROM recipe_likes WHERE recipe_id = ?`,
+    [recipe_id]
+  );
+  return result[0].likes;
+}
+
+
+
 module.exports = {
   getRecipeInformation,
   getRecipeDetails,
@@ -385,5 +498,10 @@ module.exports = {
   getFamilyRecipeById,
   searchRecipes,
   getRecipesPreview,
-  detectIntolerances
+  detectIntolerances,
+  generateUniqueId,
+  getRecipeLikeCount,
+  createPersonalRecipe,
+  createFamilyRecipe
+  
 };

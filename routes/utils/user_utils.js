@@ -29,6 +29,23 @@ async function markAsWatched(user_id, recipe_id) {
   }
 }
 
+async function likeRecipe(user_id, recipe_id) {
+  const alreadyLiked = await DButils.execQuery(
+    `SELECT * FROM recipe_likes WHERE user_id = ? AND recipe_id = ?`,
+    [user_id, recipe_id]
+  );
+  if (alreadyLiked.length === 0) {
+    await DButils.execQuery(
+      `INSERT INTO recipe_likes (user_id, recipe_id) VALUES (?, ?)`,
+      [user_id, recipe_id]
+    );
+  }
+}
+
+
 exports.markAsWatched = markAsWatched;
 exports.markAsFavorite = markAsFavorite;
 exports.getFavoriteRecipes = getFavoriteRecipes;
+exports.likeRecipe = likeRecipe;
+
+
