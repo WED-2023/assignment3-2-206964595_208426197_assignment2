@@ -1,6 +1,8 @@
 var express = require("express");
 var router = express.Router();
 const recipes_utils = require("./utils/recipes_utils");
+const user_utils = require("../routes/utils/user_utils");
+
 
 router.get("/", (req, res) => res.send("im here"));
 
@@ -72,10 +74,9 @@ router.get("/:recipeId", async (req, res, next) => {
 
 router.post("/:recipeId/like", async (req, res, next) => {
   try {
-    const user_id = req.session.user_id;
     const { recipeId } = req.params;
 
-    await user_utils.likeRecipe(user_id, recipeId);
+    await user_utils.likeRecipe(recipeId);
     res.status(200).send({ message: "Recipe liked successfully" });
   } catch (err) {
     next(err);

@@ -26,17 +26,21 @@ router.use(async function (req, res, next) {
 /**
  * This path gets body with recipeId and save this recipe in the favorites list of the logged-in user
  */
-router.post('/favorites', async (req,res,next) => {
-  try{
+router.post('/favorites', async (req, res, next) => {
+  try {
     const user_id = req.session.user_id;
     const recipe_id = req.body.recipeId;
-    await user_utils.markAsFavorite(user_id,recipe_id);
-    res.status(200).send("The Recipe successfully saved as favorite");
-    } catch(error){
+
+    if (!recipe_id) {
+      return res.status(400).send("Missing recipeId in request body");
+    }
+
+    await user_utils.markAsFavorite(user_id, recipe_id);
+    res.status(200).send("The Recipe was successfully saved as favorite");
+  } catch (error) {
     next(error);
   }
-})
-
+});
 /**
  * This path returns the favorites recipes that were saved by the logged-in user
  */
@@ -70,8 +74,6 @@ router.post("/my_recipes", async (req, res, next) => {
       ingredients = ingredients.map(i => i.name);
     }
 
-    const intolerance = recipe_utils.detectIntolerances(ingredients);
-
     // ✨ העבר את כל הנתונים לפונקציה utils
     const id = await recipe_utils.createPersonalRecipe(user_id, {
       title: req.body.title,
@@ -83,7 +85,6 @@ router.post("/my_recipes", async (req, res, next) => {
       vegan: req.body.vegan,
       vegetarian: req.body.vegetarian,
       glutenFree: req.body.glutenFree,
-      intolerance // ✔️ זה השם שהפונקציה מצפה לו
     });
 
     res.status(201).send({ message: "Personal recipe created successfully", id });
