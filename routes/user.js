@@ -62,8 +62,6 @@ router.get('/favorites', async (req,res,next) => {
 router.post("/my_recipes", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
-
-    // 🔽 הכנס כאן את הקוד לטיפול ברשימת המרכיבים
     let ingredients = req.body.ingredients || [];
 
     if (!Array.isArray(ingredients)) {
@@ -74,7 +72,6 @@ router.post("/my_recipes", async (req, res, next) => {
       ingredients = ingredients.map(i => i.name);
     }
 
-    // ✨ העבר את כל הנתונים לפונקציה utils
     const id = await recipe_utils.createPersonalRecipe(user_id, {
       title: req.body.title,
       image: req.body.image,
@@ -118,7 +115,6 @@ router.get("/my_recipes/:recipeId", async (req, res, next) => {
     const user_id = req.session.user_id;
     const recipeId = req.params.recipeId;
 
-    // שליפת המתכון לפי ID ולפי המשתמש המחובר
     const results = await DButils.execQuery(
       `SELECT *
        FROM myrecipes
@@ -126,7 +122,6 @@ router.get("/my_recipes/:recipeId", async (req, res, next) => {
       [recipeId, user_id]
     );
 
-    // אם לא נמצא מתכון כזה או לא שייך למשתמש
     if (results.length === 0) {
       return res.status(404).send({
         message: "Recipe not found",
@@ -136,7 +131,6 @@ router.get("/my_recipes/:recipeId", async (req, res, next) => {
 
     const recipe = results[0];
 
-    // נבצע JSON.parse רק אם השדות הם מחרוזת (string)
     if (typeof recipe.ingredients === "string") {
       recipe.ingredients = JSON.parse(recipe.ingredients);
     }
@@ -209,11 +203,12 @@ router.post("/markwatched/:recipeId", async (req, res, next) => {
     next(err);
   }
 });
+
+
 router.get("/lastWatchedRecipes", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
 
-    // שליפת 3 המתכונים האחרונים שצפה בהם המשתמש
     const watched = await DButils.execQuery(
       `SELECT recipe_id
        FROM watched_recipes
@@ -223,46 +218,19 @@ router.get("/lastWatchedRecipes", async (req, res, next) => {
       [user_id]
     );
 
-    const recipeIds = watched.map((r) => r.recipe_id);
+    const recipeIds = watched.map((r) => r.recipe_id.trim());
 
     if (recipeIds.length === 0) {
-      return res.status(200).send([]); // אין צפיות
+      return res.status(200).send([]);
     }
 
-    const previews = await Promise.all(
-      recipeIds.map(async (id) => {
-        try {
-          const cleanId = id.trim();
-
-          // אם זה רק מספרים – Spoonacular
-          if (/^\d+$/.test(cleanId)) {
-            return await recipe_utils.getRecipeDetails(cleanId);
-          }
-
-          // אחרת – מתכון אישי (myrecipes)
-          const my = await DButils.execQuery(
-            `SELECT id, title, image, readyInMinutes AS Time,
-                    aggregateLikes AS popularity,
-                    vegan, vegetarian, glutenFree
-             FROM myrecipes
-             WHERE id = ?`,
-            [cleanId]
-          );
-          if (my.length > 0) return my[0];
-
-          return null; // לא נמצא
-        } catch (err) {
-          return null;
-        }
-      })
-    );
-
-    const validPreviews = previews.filter((r) => r !== null);
-    res.status(200).send(validPreviews);
+    const previews = await recipe_utils.getRecipesPreview(recipeIds, user_id);
+    res.status(200).send(previews);
   } catch (error) {
     next(error);
   }
 });
+
 
 router.get("/lastsearch", async (req, res, next) => {
 

@@ -227,7 +227,7 @@ async function getFamilyRecipeById(recipeId, user_id) {
 }
 
 
-// utils/recipes_utils.js
+
 async function createFamilyRecipe(user_id, recipeData) {
   const {
     title,
@@ -288,7 +288,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     const limit = allowed.includes(Number(number)) ? Number(number) : 5;
     const intoleranceArray = intolerance ? intolerance.split(",").map(s => s.trim()) : [];
 
-    // ---------- FROM DB ----------
+    // FROM DB 
     let sql = `
       (
         SELECT id, title, image, readyInMinutes AS Time,
@@ -352,7 +352,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
       isFavorite: false
     }));
 
-    // ---------- FROM SPOONACULAR ----------
+    // FROM SPOONACULAR 
     const spoonacularResponse = await axios.get('https://api.spoonacular.com/recipes/complexSearch', {
       params: {
         query,
