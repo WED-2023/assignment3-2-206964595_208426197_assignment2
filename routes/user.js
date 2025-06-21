@@ -100,7 +100,7 @@ router.get("/my_recipes", async (req, res, next) => {
               aggregateLikes AS popularity,
               vegan, vegetarian, glutenFree
        FROM myrecipes
-       WHERE creator_id = ?`,
+       WHERE user_id = ?`,
       [user_id]
     );
 

@@ -288,7 +288,8 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     const limit = allowed.includes(Number(number)) ? Number(number) : 5;
     const intoleranceArray = intolerance ? intolerance.split(",").map(s => s.trim()) : [];
 
-    // FROM DB 
+
+    // 1. Search from DB
     let sql = `
       (
         SELECT id, title, image, readyInMinutes AS Time,
@@ -298,13 +299,9 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     `;
     const bindings = [`%${query}%`];
 
-    if (diet === "vegan") {
-      sql += ` AND vegan = true`;
-    } else if (diet === "vegetarian") {
-      sql += ` AND vegetarian = true`;
-    } else if (diet === "glutenFree") {
-      sql += ` AND glutenFree = true`;
-    }
+    if (diet === "vegan") sql += ` AND vegan = true`;
+    else if (diet === "vegetarian") sql += ` AND vegetarian = true`;
+    else if (diet === "glutenFree") sql += ` AND glutenFree = true`;
 
     if (intoleranceArray.length) {
       sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
@@ -318,16 +315,11 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
              aggregateLikes AS popularity, vegan, vegetarian, glutenFree
       FROM familyrecipes
       WHERE title LIKE ?`;
-
     bindings.push(`%${query}%`);
 
-    if (diet === "vegan") {
-      sql += ` AND vegan = true`;
-    } else if (diet === "vegetarian") {
-      sql += ` AND vegetarian = true`;
-    } else if (diet === "glutenFree") {
-      sql += ` AND glutenFree = true`;
-    }
+    if (diet === "vegan") sql += ` AND vegan = true`;
+    else if (diet === "vegetarian") sql += ` AND vegetarian = true`;
+    else if (diet === "glutenFree") sql += ` AND glutenFree = true`;
 
     if (intoleranceArray.length) {
       sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
@@ -339,6 +331,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     bindings.push(limit);
 
     const dbResults = await db.query(sql, bindings);
+
     const mappedDbResults = dbResults.map((r) => ({
       id: r.id,
       image: r.image,
@@ -352,38 +345,44 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
       isFavorite: false
     }));
 
-    // FROM SPOONACULAR 
-    const spoonacularResponse = await axios.get('https://api.spoonacular.com/recipes/complexSearch', {
-      params: {
-        query,
-        number: limit,
-        cuisine,
-        diet,
-        intolerances: intolerance,
-        apiKey: process.env.spoonacular_apiKey
-      }
-    });
-
-    const ids = spoonacularResponse.data.results.map(r => r.id);
-
-    const detailedRecipes = await Promise.all(ids.map(async (id) => {
-      const info = await axios.get(`https://api.spoonacular.com/recipes/${id}/information`, {
-        params: { includeNutrition: false, apiKey: process.env.spoonacular_apiKey }
+    // Try to fetch from Spoonacular
+    let detailedRecipes = [];
+    try {
+      const spoonacularResponse = await axios.get('https://api.spoonacular.com/recipes/complexSearch', {
+        params: {
+          query,
+          number: limit,
+          cuisine,
+          diet,
+          intolerances: intolerance,
+          apiKey: process.env.spoonacular_apiKey
+        }
       });
-      const r = info.data;
-      return {
-        id: r.id,
-        image: r.image,
-        title: r.title,
-        Time: r.readyInMinutes,
-        popularity: r.aggregateLikes,
-        vegan: r.vegan,
-        vegetarian: r.vegetarian,
-        glutenFree: r.glutenFree,
-        isWatched: false,
-        isFavorite: false
-      };
-    }));
+
+      const ids = spoonacularResponse.data.results.map(r => r.id);
+
+      detailedRecipes = await Promise.all(ids.map(async (id) => {
+        const info = await axios.get(`https://api.spoonacular.com/recipes/${id}/information`, {
+          params: { includeNutrition: false, apiKey: process.env.spoonacular_apiKey }
+        });
+        const r = info.data;
+        return {
+          id: r.id,
+          image: r.image,
+          title: r.title,
+          Time: r.readyInMinutes,
+          popularity: r.aggregateLikes,
+          vegan: r.vegan,
+          vegetarian: r.vegetarian,
+          glutenFree: r.glutenFree,
+          isWatched: false,
+          isFavorite: false
+        };
+      }));
+    } catch (spoonErr) {
+      console.warn(" Spoonacular API failed, returning only DB results:", spoonErr.message);
+    }
+
 
     return [...mappedDbResults, ...detailedRecipes];
 
