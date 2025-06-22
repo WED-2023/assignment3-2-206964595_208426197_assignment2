@@ -278,7 +278,7 @@ async function createFamilyRecipe(user_id, recipeData) {
 
 
 
-async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) {
+async function searchRecipes({ query, number = 5, cuisine, diet, intolerance, includePersonal = false }) {
   try {
     if (!query) {
       throw { status: 400, message: "Query parameter is required" };
@@ -288,64 +288,67 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     const limit = allowed.includes(Number(number)) ? Number(number) : 5;
     const intoleranceArray = intolerance ? intolerance.split(",").map(s => s.trim()) : [];
 
+    let mappedDbResults = [];
 
-    // 1. Search from DB
-    let sql = `
+    // 🔁 רק אם includePersonal=true נשלוף מה-DB
+    if (includePersonal) {
+      let sql = `
+        (
+          SELECT id, title, image, readyInMinutes AS Time,
+                aggregateLikes AS popularity, vegan, vegetarian, glutenFree
+          FROM myrecipes
+          WHERE title LIKE ?
+      `;
+      const bindings = [`%${query}%`];
+
+      if (diet === "vegan") sql += ` AND vegan = true`;
+      else if (diet === "vegetarian") sql += ` AND vegetarian = true`;
+      else if (diet === "glutenFree") sql += ` AND glutenFree = true`;
+
+      if (intoleranceArray.length) {
+        sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
+        bindings.push(JSON.stringify(intoleranceArray));
+      }
+
+      sql += `)
+      UNION
       (
         SELECT id, title, image, readyInMinutes AS Time,
-               aggregateLikes AS popularity, vegan, vegetarian, glutenFree
-        FROM myrecipes
-        WHERE title LIKE ?
-    `;
-    const bindings = [`%${query}%`];
+              aggregateLikes AS popularity, vegan, vegetarian, glutenFree
+        FROM familyrecipes
+        WHERE title LIKE ?`;
+      bindings.push(`%${query}%`);
 
-    if (diet === "vegan") sql += ` AND vegan = true`;
-    else if (diet === "vegetarian") sql += ` AND vegetarian = true`;
-    else if (diet === "glutenFree") sql += ` AND glutenFree = true`;
+      if (diet === "vegan") sql += ` AND vegan = true`;
+      else if (diet === "vegetarian") sql += ` AND vegetarian = true`;
+      else if (diet === "glutenFree") sql += ` AND glutenFree = true`;
 
-    if (intoleranceArray.length) {
-      sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
-      bindings.push(JSON.stringify(intoleranceArray));
+      if (intoleranceArray.length) {
+        sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
+        bindings.push(JSON.stringify(intoleranceArray));
+      }
+
+      sql += `)
+      LIMIT ?`;
+      bindings.push(limit);
+
+      const dbResults = await db.query(sql, bindings);
+
+      mappedDbResults = dbResults.map((r) => ({
+        id: r.id,
+        image: r.image,
+        title: r.title,
+        Time: r.Time,
+        popularity: r.popularity,
+        vegan: r.vegan,
+        vegetarian: r.vegetarian,
+        glutenFree: r.glutenFree,
+        isWatched: false,
+        isFavorite: false
+      }));
     }
 
-    sql += `)
-    UNION
-    (
-      SELECT id, title, image, readyInMinutes AS Time,
-             aggregateLikes AS popularity, vegan, vegetarian, glutenFree
-      FROM familyrecipes
-      WHERE title LIKE ?`;
-    bindings.push(`%${query}%`);
-
-    if (diet === "vegan") sql += ` AND vegan = true`;
-    else if (diet === "vegetarian") sql += ` AND vegetarian = true`;
-    else if (diet === "glutenFree") sql += ` AND glutenFree = true`;
-
-    if (intoleranceArray.length) {
-      sql += ` AND NOT JSON_OVERLAPS(intolerances, ?)`;
-      bindings.push(JSON.stringify(intoleranceArray));
-    }
-
-    sql += `)
-    LIMIT ?`;
-    bindings.push(limit);
-
-    const dbResults = await db.query(sql, bindings);
-
-    const mappedDbResults = dbResults.map((r) => ({
-      id: r.id,
-      image: r.image,
-      title: r.title,
-      Time: r.Time,
-      popularity: r.popularity,
-      vegan: r.vegan,
-      vegetarian: r.vegetarian,
-      glutenFree: r.glutenFree,
-      isWatched: false,
-      isFavorite: false
-    }));
-
-    // Try to fetch from Spoonacular
+    // --- Spoonacular
     let detailedRecipes = [];
     try {
       const spoonacularResponse = await axios.get('https://api.spoonacular.com/recipes/complexSearch', {
@@ -383,7 +386,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
       console.warn(" Spoonacular API failed, returning only DB results:", spoonErr.message);
     }
 
-
+    // 🔁 מחזיר רק מה שמותר
     return [...mappedDbResults, ...detailedRecipes];
 
   } catch (error) {
@@ -391,6 +394,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance }) 
     throw error;
   }
 }
+
 
 
 

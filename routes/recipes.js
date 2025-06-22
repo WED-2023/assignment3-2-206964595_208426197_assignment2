@@ -32,18 +32,25 @@ router.get("/Explore", async (req, res) => {
 router.get("/search", async (req, res, next) => {
   try {
     const { query, number, cuisine, diet, intolerance } = req.query;
+
+    // Check if user is logged in
+    const isLoggedIn = req.session && req.session.user_id;
+
     const results = await recipes_utils.searchRecipes({
       query,
       number,
       cuisine,
       diet,
-      intolerance
+      intolerance,
+      includePersonal: isLoggedIn,  // נשלח לפונקציה אם לכלול גם מתכונים אישיים
+      user_id: isLoggedIn ? req.session.user_id : null,
     });
 
     if (results.length === 0) {
       return res.status(204).send("There are no matching recipes");
     }
-    req.session.lastSearchResults = results; //save results for "lastsearch" function #IDAN ADDED
+
+    req.session.lastSearchResults = results; // save results for "lastsearch" function #IDAN ADDED
 
     res.status(200).send(results);
   } catch (error) {
@@ -54,6 +61,7 @@ router.get("/search", async (req, res, next) => {
     }
   }
 });
+
 
 
 
