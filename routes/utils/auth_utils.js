@@ -24,7 +24,7 @@ function validatePasswordConfirmation(password, passwordConfirm) {
 }
 
 async function validateCountry(country) {
-  const response = await axios.get("https://restcountries.com/v3.1/all");
+  const response = await axios.get("https://restcountries.com/v3.1/all?fields=name")
   const countries = response.data.map((c) => c.name.common.toLowerCase());
   if (!countries.includes(country.toLowerCase())) {
     throw { status: 400, message: "Invalid country name" };
