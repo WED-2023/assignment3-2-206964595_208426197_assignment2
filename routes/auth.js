@@ -11,7 +11,7 @@ const {
   validateCountry
 } = require("./utils/auth_utils");
 
-router.post("/Register", async (req, res, next) => {
+router.post("/register", async (req, res, next) => {
   try {
     const { username, firstname, lastname, country, password, email, profilePic, passwordConfirm } = req.body;
 
@@ -40,7 +40,7 @@ router.post("/Register", async (req, res, next) => {
 });
 
 
-router.post("/Login", async (req, res, next) => {
+router.post("/login", async (req, res, next) => {
   try {
     // check that username exists
     const users = await DButils.execQuery("SELECT username FROM users");
@@ -70,7 +70,7 @@ router.post("/Login", async (req, res, next) => {
   }
 });
 
-router.post("/Logout", function (req, res) {
+router.post("/logout", function (req, res) {
   console.log("session user_id Logout: " + req.session.user_id);
   req.session.reset(); // reset the session info --> send cookie when  req.session == undefined!!
   res.send({ success: true, message: "logout succeeded" });

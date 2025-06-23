@@ -2,6 +2,7 @@ const axios = require("axios");
 require("dotenv").config();
 const db = require("./MySql");
 const api_domain = "https://api.spoonacular.com/recipes";
+const DButils = require("./DButils");
 
 
 
@@ -419,10 +420,9 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
           vegan: r.vegan,
           vegetarian: r.vegetarian,
           glutenFree: r.glutenFree,
-
         };
       } else {
-        // DB: personal/family
+        // DB: personal/family - Use DButils instead of db
         const sql = `
           SELECT id, title, image, readyInMinutes AS Time,
                  aggregateLikes AS popularity, vegan, vegetarian, glutenFree
@@ -434,22 +434,24 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
           FROM familyrecipes
           WHERE id = ?
         `;
-        const results = await db.query(sql, [id, id]);
+        const results = await DButils.execQuery(sql, [id, id]);
         if (results.length === 0) continue;
         recipe = results[0];
       }
 
       if (user_id) {
-        const [favRows] = await db.query(
-          `SELECT 1 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
+        // Use DButils.execQuery consistently
+        const favRows = await DButils.execQuery(
+          `SELECT 3 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
           [user_id, id]
         );
-        const [watchedRows] = await db.query(
-          `SELECT 1 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
+        const watchedRows = await DButils.execQuery(
+          `SELECT 3 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
           [user_id, id]
         );
-        recipe.isFavorite = favRows.length > 0;
-        recipe.isWatched = watchedRows.length > 0;
+        
+        recipe.isFavorite = favRows && favRows.length > 0;
+        recipe.isWatched = watchedRows && watchedRows.length > 0;
       } else {
         recipe.isFavorite = false;
         recipe.isWatched = false;
@@ -457,8 +459,7 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
 
       previews.push(recipe);
     } catch (err) {
-      console.error(` Failed to fetch preview for recipe ${id}:`, err.message);
-  
+      console.error(`Failed to fetch preview for recipe ${id}:`, err.message);
     }
   }
 

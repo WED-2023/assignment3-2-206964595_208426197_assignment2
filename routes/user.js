@@ -118,7 +118,7 @@ router.get("/my_recipes/:recipeId", async (req, res, next) => {
     const results = await DButils.execQuery(
       `SELECT *
        FROM myrecipes
-       WHERE id = ? AND creator_id = ?`,
+       WHERE id = ? AND user_id = ?`,
       [recipeId, user_id]
     );
 
@@ -213,8 +213,7 @@ router.get("/lastWatchedRecipes", async (req, res, next) => {
       `SELECT recipe_id
        FROM watched_recipes
        WHERE user_id = ?
-       ORDER BY watched_at DESC
-       LIMIT 3`,
+       LIMIT 3`,  // Remove ORDER BY watched_at DESC
       [user_id]
     );
 
