@@ -15,73 +15,41 @@ async function getRecipeInformation(recipe_id) {
   });
 }
 
-async function getRecipeDetails(recipe_id) {
-  if (!isNaN(recipe_id)) {
-    // Spoonacular recipe
-    const recipe_info = await getRecipeInformation(recipe_id);
-    const r = recipe_info.data;
+async function getRecipeDetails(recipeId) {
+  let recipe;
 
-    return {
-      id: r.id,
-      title: r.title,
-      readyInMinutes: r.readyInMinutes,
-      image: r.image,
-      popularity: r.aggregateLikes,
-      vegan: r.vegan,
-      vegetarian: r.vegetarian,
-      glutenFree: r.glutenFree,
-      ingredients: r.extendedIngredients?.map(i => ({
-        name: i.name,
-        amount: i.amount,
-        unit: i.unit
-      })),
-      instructions: r.instructions,
-      isWatched: false,
-      isFavorite: false
+  if (!isNaN(recipeId)) {
+    // Spoonacular
+    const recipe_info = await getRecipeInformation(recipeId);
+    recipe = {
+      id: recipe_info.data.id,
+      title: recipe_info.data.title,
+      readyInMinutes: recipe_info.data.readyInMinutes,
+      image: recipe_info.data.image,
+      popularity: recipe_info.data.aggregateLikes || 0,
+      vegan: recipe_info.data.vegan,
+      vegetarian: recipe_info.data.vegetarian,
+      glutenFree: recipe_info.data.glutenFree,
+      // ... שדות נוספים
     };
+  } else {
+    // Personal or Family recipe
+    const recipe_info = await DButils.execQuery(`SELECT * FROM myrecipes WHERE id = ?`, [recipeId]);
+    if (recipe_info.length === 0) throw { status: 404, message: "Recipe not found" };
+    recipe = recipe_info[0];
   }
 
-  // Custom recipe
-  const sql = `
-    SELECT id, user_id, title, image, readyInMinutes,
-          aggregateLikes, vegan, vegetarian, glutenFree,
-          NULL AS recipeOwner, NULL AS occasion,
-          ingredients, instructions, NULL AS servings, intolerances
-    FROM myrecipes
-    WHERE id = ?
-    UNION
-    SELECT id, user_id, title, image, readyInMinutes,
-          aggregateLikes, vegan, vegetarian, glutenFree,
-          recipeOwner, occasion,
-          ingredients, instructions, servings, intolerances
-    FROM familyrecipes
-    WHERE id = ?
-  `;
+  // שלוף את כמות הלייקים מה־DB והוסף לשדה popularity
+  const likes_result = await DButils.execQuery(
+    `SELECT extra_likes FROM recipe_likes WHERE recipe_id = ?`,
+    [recipeId]
+  );
+  const extraLikes = likes_result.length > 0 ? likes_result[0].extra_likes : 0;
 
-  const results = await db.query(sql, [recipe_id, recipe_id]);
-  if (results.length === 0) {
-    throw { status: 404, message: "Recipe not found in database" };
-  }
+  // אם יש כבר aggregateLikes (מספונאקולר) – נוסיף את הלייקים הנוספים
+  recipe.popularity = (recipe.popularity || 0) + extraLikes;
 
-  const r = results[0];
-  return {
-    id: r.id,
-    title: r.title,
-    image: r.image,
-    readyInMinutes: r.readyInMinutes,
-    popularity: r.aggregateLikes,
-    vegan: r.vegan,
-    vegetarian: r.vegetarian,
-    glutenFree: r.glutenFree,
-    ingredients: JSON.parse(r.ingredients || "[]"),
-    instructions: r.instructions,
-    servings: r.servings,
-    recipeOwner: r.recipeOwner,
-    occasion: r.occasion,
-    intolerances: JSON.parse(r.intolerances || "[]"),
-    isWatched: false,
-    isFavorite: false
-  };
+  return recipe;
 }
 
 
