@@ -15,7 +15,7 @@ async function getRecipeInformation(recipe_id) {
   });
 }
 
-async function getRecipeDetails(recipeId) {
+async function getRecipeDetails(recipeId, user_id) {
   let recipe;
 
   if (!isNaN(recipeId)) {
@@ -30,23 +30,40 @@ async function getRecipeDetails(recipeId) {
       vegan: recipe_info.data.vegan,
       vegetarian: recipe_info.data.vegetarian,
       glutenFree: recipe_info.data.glutenFree,
-      // ... שדות נוספים
+      servings: recipe_info.data.servings,
+      // ADD THESE LINES for ingredients and instructions:
+      extendedIngredients: recipe_info.data.extendedIngredients,
+      analyzedInstructions: recipe_info.data.analyzedInstructions,
+      instructions: recipe_info.data.instructions // fallback
     };
   } else {
     // Personal or Family recipe
-    const recipe_info = await DButils.execQuery(`SELECT * FROM myrecipes WHERE id = ?`, [recipeId]);
+    const recipe_info = await DButils.execQuery(`
+      SELECT * FROM myrecipes WHERE id = ?
+      UNION
+      SELECT * FROM familyrecipes WHERE id = ?
+    `, [recipeId, recipeId]);
+    
     if (recipe_info.length === 0) throw { status: 404, message: "Recipe not found" };
     recipe = recipe_info[0];
+    
+    // Parse JSON ingredients if it's a string
+    if (typeof recipe.ingredients === "string") {
+      try {
+        recipe.ingredients = JSON.parse(recipe.ingredients);
+      } catch (e) {
+        console.error('Failed to parse ingredients:', e);
+        // Keep as string if parsing fails
+      }
+    }
   }
 
-  // שלוף את כמות הלייקים מה־DB והוסף לשדה popularity
+  // Get extra likes from recipe_likes table
   const likes_result = await DButils.execQuery(
     `SELECT extra_likes FROM recipe_likes WHERE recipe_id = ?`,
     [recipeId]
   );
   const extraLikes = likes_result.length > 0 ? likes_result[0].extra_likes : 0;
-
-  // אם יש כבר aggregateLikes (מספונאקולר) – נוסיף את הלייקים הנוספים
   recipe.popularity = (recipe.popularity || 0) + extraLikes;
 
   return recipe;
