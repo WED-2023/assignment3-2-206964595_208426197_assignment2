@@ -159,7 +159,7 @@ router.post("/family", async (req, res, next) => {
 });
 
 
-router.get("/Family", async (req, res, next) => {
+router.get("/family", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
     const recipes = await recipe_utils.getFamilyRecipesByUser(user_id);
@@ -175,7 +175,7 @@ router.get("/Family", async (req, res, next) => {
 })
 
 
-router.get("/Family/:recipeId", async (req, res, next) => {
+router.get("/family/:recipeId", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
     const recipeId = req.params.recipeId;
