@@ -14,7 +14,7 @@ async function getRecipeInformation(recipe_id) {
     }
   });
 }
-
+//TEST
 async function getRecipeDetails(recipeId, user_id) {
   let recipe;
 
