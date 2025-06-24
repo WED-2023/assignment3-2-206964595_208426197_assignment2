@@ -14,96 +14,42 @@ async function getRecipeInformation(recipe_id) {
     }
   });
 }
-async function getRecipeDetails(recipe_id, user_id = null) {
-  let recipeData;
-  
-  if (!isNaN(recipe_id)) {
-    // Spoonacular recipe
-    const recipe_info = await getRecipeInformation(recipe_id);
-    const r = recipe_info.data;
 
-    recipeData = {
-      id: r.id,
-      title: r.title,
-      readyInMinutes: r.readyInMinutes,
-      image: r.image,
-      popularity: r.aggregateLikes || 0, // Base likes from Spoonacular
-      vegan: r.vegan,
-      vegetarian: r.vegetarian,
-      glutenFree: r.glutenFree,
-      ingredients: r.extendedIngredients?.map(i => ({
-        name: i.name,
-        amount: i.amount,
-        unit: i.unit
-      })),
-      instructions: r.instructions,
+async function getRecipeDetails(recipeId) {
+  let recipe;
+
+  if (!isNaN(recipeId)) {
+    // Spoonacular
+    const recipe_info = await getRecipeInformation(recipeId);
+    recipe = {
+      id: recipe_info.data.id,
+      title: recipe_info.data.title,
+      readyInMinutes: recipe_info.data.readyInMinutes,
+      image: recipe_info.data.image,
+      popularity: recipe_info.data.aggregateLikes || 0,
+      vegan: recipe_info.data.vegan,
+      vegetarian: recipe_info.data.vegetarian,
+      glutenFree: recipe_info.data.glutenFree,
+      // ... שדות נוספים
     };
   } else {
-    // Custom recipe from DB
-    const sql = `
-      SELECT id, user_id, title, image, readyInMinutes,
-            aggregateLikes, vegan, vegetarian, glutenFree,
-            NULL AS recipeOwner, NULL AS occasion,
-            ingredients, instructions, NULL AS servings, intolerances
-      FROM myrecipes
-      WHERE id = ?
-      UNION
-      SELECT id, user_id, title, image, readyInMinutes,
-            aggregateLikes, vegan, vegetarian, glutenFree,
-            recipeOwner, occasion,
-            ingredients, instructions, servings, intolerances
-      FROM familyrecipes
-      WHERE id = ?
-    `;
-
-    const results = await db.query(sql, [recipe_id, recipe_id]);
-    if (results.length === 0) {
-      throw { status: 404, message: "Recipe not found in database" };
-    }
-
-    const r = results[0];
-    recipeData = {
-      id: r.id,
-      title: r.title,
-      image: r.image,
-      readyInMinutes: r.readyInMinutes,
-      popularity: r.aggregateLikes || 0,
-      vegan: r.vegan,
-      vegetarian: r.vegetarian,
-      glutenFree: r.glutenFree,
-      ingredients: JSON.parse(r.ingredients || "[]"),
-      instructions: r.instructions,
-      servings: r.servings,
-      recipeOwner: r.recipeOwner,
-      occasion: r.occasion,
-      intolerances: JSON.parse(r.intolerances || "[]"),
-    };
+    // Personal or Family recipe
+    const recipe_info = await DButils.execQuery(`SELECT * FROM myrecipes WHERE id = ?`, [recipeId]);
+    if (recipe_info.length === 0) throw { status: 404, message: "Recipe not found" };
+    recipe = recipe_info[0];
   }
 
-  // ALWAYS add extra likes from recipe_likes table
-  const extraLikesResult = await DButils.execQuery(
-    `SELECT COUNT(*) AS count FROM recipe_likes WHERE recipe_id = ?`,
-    [recipe_id]
+  // שלוף את כמות הלייקים מה־DB והוסף לשדה popularity
+  const likes_result = await DButils.execQuery(
+    `SELECT extra_likes FROM recipe_likes WHERE recipe_id = ?`,
+    [recipeId]
   );
-  const extraLikes = extraLikesResult[0]?.count || 0;
-  recipeData.popularity = recipeData.popularity + extraLikes;
+  const extraLikes = likes_result.length > 0 ? likes_result[0].extra_likes : 0;
 
-  // Check if user liked this recipe
-  if (user_id) {
-    const likedRows = await DButils.execQuery(
-      `SELECT 1 FROM recipe_likes WHERE user_id = ? AND recipe_id = ?`,
-      [user_id, recipe_id]
-    );
-    recipeData.isLiked = likedRows && likedRows.length > 0;
-  } else {
-    recipeData.isLiked = false;
-  }
+  // אם יש כבר aggregateLikes (מספונאקולר) – נוסיף את הלייקים הנוספים
+  recipe.popularity = (recipe.popularity || 0) + extraLikes;
 
-  // Set other user status flags
-  recipeData.isWatched = false;
-  recipeData.isFavorite = false;
-
-  return recipeData;
+  return recipe;
 }
 async function getExploreRecipes(user_id) {
   const fromDB = !!user_id && Math.random() < 0.5;
@@ -416,6 +362,9 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance, in
   }
 }
 
+
+
+
 async function getRecipesPreview(recipe_ids, user_id = null) {
   const previews = [];
 
@@ -439,7 +388,7 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
           glutenFree: r.glutenFree,
         };
       } else {
-        // DB: personal/family
+        // DB: personal/family - Use DButils instead of db
         const sql = `
           SELECT id, title, image, readyInMinutes AS Time,
                  aggregateLikes AS popularity, vegan, vegetarian, glutenFree
@@ -467,22 +416,18 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
 
       // Check user-specific status
       if (user_id) {
+        // Use DButils.execQuery consistently
         const favRows = await DButils.execQuery(
-          `SELECT 1 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
+          `SELECT 3 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
           [user_id, id]
         );
         const watchedRows = await DButils.execQuery(
-          `SELECT 1 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
-          [user_id, id]
-        );
-        const likedRows = await DButils.execQuery(
-          `SELECT 1 FROM recipe_likes WHERE user_id = ? AND recipe_id = ?`,
+          `SELECT 3 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
           [user_id, id]
         );
         
         recipe.isFavorite = favRows && favRows.length > 0;
         recipe.isWatched = watchedRows && watchedRows.length > 0;
-        recipe.isLiked = likedRows && likedRows.length > 0;
       } else {
         recipe.isFavorite = false;
         recipe.isWatched = false;
