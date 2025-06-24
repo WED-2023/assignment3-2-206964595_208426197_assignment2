@@ -213,7 +213,8 @@ router.get("/lastWatchedRecipes", async (req, res, next) => {
       `SELECT recipe_id
        FROM watched_recipes
        WHERE user_id = ?
-       LIMIT 3`,  // Remove ORDER BY watched_at DESC
+       ORDER BY watched_at DESC  
+       LIMIT 3`,  
       [user_id]
     );
 
