@@ -80,24 +80,10 @@ async function getRecipeDetails(recipeId, user_id) {
   return recipe;
 }
 async function getExploreRecipes(user_id) {
-  const fromDB = !!user_id && Math.random() < 0.5;
+  // Always use Spoonacular for explore recipes - no database recipes
   let recipeIds = [];
 
-  if (fromDB) {
-    const sql = `
-      SELECT id
-      FROM myrecipes
-      WHERE user_id = ?
-      UNION
-      SELECT id
-      FROM familyrecipes
-      WHERE user_id = ?
-      ORDER BY RAND()
-      LIMIT 3
-    `;
-    const results = await db.query(sql, [user_id, user_id]);
-    recipeIds = results.map(r => r.id);
-  } else {
+  try {
     const response = await axios.get(`${api_domain}/random`, {
       params: {
         number: 3,
@@ -105,12 +91,13 @@ async function getExploreRecipes(user_id) {
       }
     });
     recipeIds = response.data.recipes.map(r => r.id);
+  } catch (error) {
+    console.error('Error fetching random recipes from Spoonacular:', error);
+    throw { status: 500, message: 'Failed to fetch explore recipes' };
   }
 
   return await getRecipesPreview(recipeIds, user_id);
 }
-
-
 async function createPersonalRecipe(user_id, recipeData) {
   const {
     title,
