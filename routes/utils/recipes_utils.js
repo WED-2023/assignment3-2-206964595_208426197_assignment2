@@ -38,14 +38,25 @@ async function getRecipeDetails(recipeId, user_id) {
     };
   } else {
     // Personal or Family recipe
-    const recipe_info = await DButils.execQuery(`
-      SELECT * FROM myrecipes WHERE id = ?
-      UNION
-      SELECT * FROM familyrecipes WHERE id = ?
-    `, [recipeId, recipeId]);
+    // First try myrecipes
+    let results = await DButils.execQuery(
+      `SELECT * FROM myrecipes WHERE id = ?`,
+      [recipeId]
+    );
     
-    if (recipe_info.length === 0) throw { status: 404, message: "Recipe not found" };
-    recipe = recipe_info[0];
+    // If not found in myrecipes, try familyrecipes
+    if (results.length === 0) {
+      results = await DButils.execQuery(
+        `SELECT * FROM familyrecipes WHERE id = ?`,
+        [recipeId]
+      );
+    }
+    
+    if (results.length === 0) {
+      throw { status: 404, message: "Recipe not found" };
+    }
+    
+    recipe = results[0];
     
     // Parse JSON ingredients if it's a string
     if (typeof recipe.ingredients === "string") {
