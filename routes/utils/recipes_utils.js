@@ -379,7 +379,6 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance, in
 
 
 
-
 async function getRecipesPreview(recipe_ids, user_id = null) {
   const previews = [];
 
@@ -431,13 +430,15 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
 
       // Check user-specific status
       if (user_id) {
-        // Use DButils.execQuery consistently
+        // Check if recipe is in user's favorites
         const favRows = await DButils.execQuery(
-          `SELECT 3 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
+          `SELECT 1 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
           [user_id, id]
         );
+        
+        // Check if recipe has been watched
         const watchedRows = await DButils.execQuery(
-          `SELECT 3 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
+          `SELECT 1 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
           [user_id, id]
         );
         
@@ -446,7 +447,6 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
       } else {
         recipe.isFavorite = false;
         recipe.isWatched = false;
-        recipe.isLiked = false;
       }
 
       previews.push(recipe);

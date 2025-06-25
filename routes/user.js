@@ -58,38 +58,87 @@ router.get('/favorites', async (req,res,next) => {
   }
 });
 
-
-router.post("/my_recipes", async (req, res, next) => {
+// In user.js - Update the my_recipes GET route
+router.get("/my_recipes", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
-    let ingredients = req.body.ingredients || [];
 
-    if (!Array.isArray(ingredients)) {
-      throw { status: 400, message: "Ingredients must be an array" };
-    }
+    const myRecipes = await DButils.execQuery(
+      `SELECT id, title, image, readyInMinutes AS Time,
+              aggregateLikes AS popularity,
+              vegan, vegetarian, glutenFree
+       FROM myrecipes
+       WHERE user_id = ?`,
+      [user_id]
+    );
 
-    if (ingredients.length > 0 && typeof ingredients[0] === "object" && "name" in ingredients[0]) {
-      ingredients = ingredients.map(i => i.name);
-    }
+    // Add isFavorite and isWatched status for each recipe
+    const recipesWithStatus = await Promise.all(
+      myRecipes.map(async (recipe) => {
+        // Check if this recipe is in user's favorites
+        const favoriteCheck = await DButils.execQuery(
+          `SELECT 1 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
+          [user_id, recipe.id]
+        );
+        
+        // Check if this recipe has been watched
+        const watchedCheck = await DButils.execQuery(
+          `SELECT 1 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
+          [user_id, recipe.id]
+        );
 
-    const id = await recipe_utils.createPersonalRecipe(user_id, {
-      title: req.body.title,
-      image: req.body.image,
-      readyInMinutes: req.body.readyInMinutes,
-      ingredients,
-      instructions: req.body.instructions,
-      servings: req.body.servings,
-      vegan: req.body.vegan,
-      vegetarian: req.body.vegetarian,
-      glutenFree: req.body.glutenFree,
-    });
+        return {
+          ...recipe,
+          isFavorite: favoriteCheck.length > 0,
+          isWatched: watchedCheck.length > 0
+        };
+      })
+    );
 
-    res.status(201).send({ message: "Personal recipe created successfully", id });
+    res.status(200).send(recipesWithStatus);
   } catch (error) {
     next(error);
   }
 });
 
+// Also update the family recipes route
+router.get("/family", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    const recipes = await recipe_utils.getFamilyRecipesByUser(user_id);
+
+    if (recipes.length < 3) {
+      return res.status(204).send("we need at least 3 recipes");
+    }
+
+    // Add isFavorite and isWatched status for each recipe
+    const recipesWithStatus = await Promise.all(
+      recipes.map(async (recipe) => {
+        // Check if this recipe is in user's favorites
+        const favoriteCheck = await DButils.execQuery(
+          `SELECT 1 FROM favoriterecipes WHERE user_id = ? AND recipe_id = ?`,
+          [user_id, recipe.id]
+        );
+        
+        // Check if this recipe has been watched  
+        const watchedCheck = await DButils.execQuery(
+          `SELECT 1 FROM watched_recipes WHERE user_id = ? AND recipe_id = ?`,
+          [user_id, recipe.id]
+        );
+
+        return {
+          ...recipe,
+          isFavorite: favoriteCheck.length > 0,
+          isWatched: watchedCheck.length > 0
+        };
+      })
+    );
+
+    res.status(200).send(recipesWithStatus);
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/my_recipes", async (req, res, next) => {
   try {
