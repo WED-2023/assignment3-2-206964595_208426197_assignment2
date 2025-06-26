@@ -6,9 +6,7 @@ const user_utils = require("./utils/user_utils");
 const recipe_utils = require("./utils/recipes_utils");
 
 
-/**
- * Authenticate all incoming requests by middleware
- */
+
 router.use(async function (req, res, next) {
   if (req.session && req.session.user_id) {
     DButils.execQuery("SELECT user_id FROM users").then((users) => {
@@ -23,9 +21,6 @@ router.use(async function (req, res, next) {
 });
 
 
-/**
- * This path gets body with recipeId and save this recipe in the favorites list of the logged-in user
- */
 router.post('/favorites', async (req, res, next) => {
   try {
     const user_id = req.session.user_id;
@@ -41,9 +36,7 @@ router.post('/favorites', async (req, res, next) => {
     next(error);
   }
 });
-/**
- * This path returns the favorites recipes that were saved by the logged-in user
- */
+
 router.get('/favorites', async (req,res,next) => {
   try{
     const user_id = req.session.user_id;
@@ -58,7 +51,7 @@ router.get('/favorites', async (req,res,next) => {
   }
 });
 
-// In user.js - Update the my_recipes GET route
+
 router.get("/my_recipes", async (req, res, next) => {
   try {
     const user_id = req.session.user_id;

@@ -7,9 +7,7 @@ const user_utils = require("../routes/utils/user_utils");
 router.get("/", (req, res) => res.send("im here"));
 
 
-/**
- * This path returns three random recipes from Spooncular or DB 
- */
+
 router.get("/Explore", async (req, res) => {
   try {
     const user_id = req.session?.user_id || null;
@@ -42,7 +40,7 @@ router.get("/search", async (req, res, next) => {
       cuisine,
       diet,
       intolerance,
-      includePersonal: isLoggedIn,  // נשלח לפונקציה אם לכלול גם מתכונים אישיים
+      includePersonal: isLoggedIn,  
       user_id: isLoggedIn ? req.session.user_id : null,
     });
 
@@ -64,12 +62,6 @@ router.get("/search", async (req, res, next) => {
 
 
 
-
-
-
-/**
- * This path returns a full details of a recipe by its id
- */
 // Update the recipe details route
 router.get("/:recipeId", async (req, res, next) => {
   try {

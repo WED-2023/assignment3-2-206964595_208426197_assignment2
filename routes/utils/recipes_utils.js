@@ -272,7 +272,6 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance, in
 
     let mappedDbResults = [];
 
-    // 🔁 רק אם includePersonal=true נשלוף מה-DB
     if (includePersonal) {
       let sql = `
         (
@@ -368,7 +367,7 @@ async function searchRecipes({ query, number = 5, cuisine, diet, intolerance, in
       console.warn(" Spoonacular API failed, returning only DB results:", spoonErr.message);
     }
 
-    // 🔁 מחזיר רק מה שמותר
+
     return [...mappedDbResults, ...detailedRecipes];
 
   } catch (error) {
@@ -420,7 +419,7 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
         recipe.popularity = recipe.popularity || 0;
       }
 
-      // ALWAYS add extra likes from recipe_likes table
+
       const extraLikesResult = await DButils.execQuery(
         `SELECT COUNT(*) AS count FROM recipe_likes WHERE recipe_id = ?`,
         [id]
@@ -428,7 +427,7 @@ async function getRecipesPreview(recipe_ids, user_id = null) {
       const extraLikes = extraLikesResult[0]?.count || 0;
       recipe.popularity = recipe.popularity + extraLikes;
 
-      // Check user-specific status
+
       if (user_id) {
         // Check if recipe is in user's favorites
         const favRows = await DButils.execQuery(
