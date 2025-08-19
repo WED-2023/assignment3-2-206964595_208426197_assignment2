@@ -51,6 +51,36 @@ router.get('/favorites', async (req,res,next) => {
   }
 });
 
+router.post("/my_recipes", async (req, res, next) => {
+  try {
+    const user_id = req.session.user_id;
+    let ingredients = req.body.ingredients || [];
+
+    if (!Array.isArray(ingredients)) {
+      throw { status: 400, message: "Ingredients must be an array" };
+    }
+
+    if (ingredients.length > 0 && typeof ingredients[0] === "object" && "name" in ingredients[0]) {
+      ingredients = ingredients.map(i => i.name);
+    }
+
+    const id = await recipe_utils.createPersonalRecipe(user_id, {
+      title: req.body.title,
+      image: req.body.image,
+      readyInMinutes: req.body.readyInMinutes,
+      ingredients,
+      instructions: req.body.instructions,
+      servings: req.body.servings,
+      vegan: req.body.vegan,
+      vegetarian: req.body.vegetarian,
+      glutenFree: req.body.glutenFree,
+    });
+
+    res.status(201).send({ message: "Personal recipe created successfully", id });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/my_recipes", async (req, res, next) => {
   try {
